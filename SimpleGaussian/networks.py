@@ -44,10 +44,7 @@ class SimpleGaussian(nn.Module):
         super(SimpleGaussian, self).__init__()
         self.fc1 = nn.Linear(3, self.hidden_size)
         self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc3 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc4 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc5 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc6 = nn.Linear(self.hidden_size, 1)
+        self.fc3 = nn.Linear(self.hidden_size, 1)
 
         # Initialise hyperparameters
         self.N_train = hyperparameters['N_train']
@@ -82,9 +79,6 @@ class SimpleGaussian(nn.Module):
         torch.nn.init.zeros_(self.fc1.bias)
         torch.nn.init.zeros_(self.fc2.bias)
         torch.nn.init.zeros_(self.fc3.bias)
-        torch.nn.init.zeros_(self.fc4.bias)
-        torch.nn.init.zeros_(self.fc5.bias)
-        torch.nn.init.zeros_(self.fc6.bias)
 
     def get_default_hyperparameters(self):
         hps = {'N_train' : 1000, #size of training dataset 
@@ -96,22 +90,19 @@ class SimpleGaussian(nn.Module):
             'train_mode' : 'random', #training mode 'random' vs 'replay' 
             'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
             'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
-            'hidden_size' : 100} #hidden layer width 
+            'hidden_size' : 0} #hidden layer width 
         return hps
 
     # Forward pass
     def forward(self, input, mode='normal'):
         x = nn.functional.relu(self.fc1(input))        
         x1 = nn.functional.relu(self.fc2(x))        
-        x2 = nn.functional.relu(self.fc3(x1))
-        x3 = nn.functional.relu(self.fc2(x2))        
-        x4 = nn.functional.relu(self.fc3(x3))
-        x5 = nn.functional.relu(self.fc2(x4))        
+        x2 = nn.functional.relu(self.fc3(x1))      
 
         if mode == 'normal':
-            return x5
+            return x2
         elif mode == 'other':
-            return x1, x2, x3, x4
+            return x, x1, x2
 
     def do_train_step(self, idx):
         sample=self.x_train[idx] 
@@ -132,10 +123,15 @@ class SimpleGaussian(nn.Module):
         self.x_task1_test = np.concatenate((np.random.uniform(0,100,(self.N_test,1)),np.ones((self.N_test,1)),np.zeros((self.N_test,1))),axis=1)
         self.x_task2_test = np.concatenate((np.random.uniform(0,100,(self.N_test,1)),np.zeros((self.N_test,1)),np.ones((self.N_test,1))),axis=1)
 
-        self.y_task1_train = np.ones(self.N_task1)
-        self.y_task2_train = np.zeros(self.N_task2)
-        self.y_task1_test = np.ones(self.N_test)
-        self.y_task2_test = np.zeros(self.N_test)
+        # self.y_task1_train = np.ones(self.N_task1)
+        # self.y_task2_train = np.zeros(self.N_task2)
+        # self.y_task1_test = np.ones(self.N_test)
+        # self.y_task2_test = np.zeros(self.N_test)
+
+        self.y_task1_train = 2*np.ones(self.N_task1)
+        self.y_task2_train = np.ones(self.N_task2)
+        self.y_task1_test = 2*np.ones(self.N_test)
+        self.y_task2_test = np.ones(self.N_test)
         
         self.x_train = np.concatenate((self.x_task1_train, self.x_task2_train))
         self.y_train = np.concatenate((self.y_task1_train, self.y_task2_train))
@@ -153,8 +149,8 @@ class SimpleGaussian(nn.Module):
         self.y_task2_test = torch.from_numpy(self.y_task2_test).float().unsqueeze(1)
 
     def abs_error(self):
-        task1_error = (self.forward(self.x_task1_test) - self.y_task1_test).abs()[0].mean(dim=0).item()
-        task2_error = (self.forward(self.x_task2_test) - self.y_task2_test).abs()[0].mean(dim=0).item()
+        task1_error = (self.forward(self.x_task1_test) - self.y_task1_test).abs().mean(dim=0).item()
+        task2_error = (self.forward(self.x_task2_test) - self.y_task2_test).abs().mean(dim=0).item()
         return [task1_error, task2_error]
 
     def train_model(self):
