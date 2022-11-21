@@ -1,2 +1,2 @@
 # ModNet
-Investiation into modularity and specificity in deep neural networks.
+Investigation into modularity and specificity in deep neural networks.
