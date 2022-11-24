@@ -147,7 +147,6 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
             rule1, rule2 = model.rules()
             plot_rulespace(list(rule1[0]), list(rule2[0]))
             plot_RI(models)
-        return models
 
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
