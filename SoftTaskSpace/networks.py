@@ -38,6 +38,8 @@ class simple_network(nn.Module):
         if hyperparameters == None:
             hyperparameters = self.get_default_hyperparameters()
         self.hidden_size = hyperparameters['hidden_size']
+        self.A1 = hyperparameters['rule1_grad']
+        self.A2 = hyperparameters['rule2_grad']
         super(simple_network, self).__init__()
 
         self.fc1 = nn.Linear(4, self.hidden_size)
@@ -83,7 +85,9 @@ class simple_network(nn.Module):
                'train_mode' : 'random', #training mode 'random' vs 'replay' 
                'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
                'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
-               'hidden_size' : 100} #hidden layer width 
+               'hidden_size' : 100, #hidden layer width
+               'rule1_grad' : 0.5,
+               'rule2_grad' : 5}
         return hps
     
     def set_data(self):
@@ -91,7 +95,6 @@ class simple_network(nn.Module):
         self.N_task2 = self.N_train - self.N_task1
 
         # For the line Ax + By + C = 0
-        self.A1, self.A2 = 0.5, 5
         self.B1, self.B2 = -1, -1
         self.C1_train, self.C2_train = np.zeros(self.N_task1), np.zeros(self.N_task2)
         self.C1_test, self.C2_test = np.zeros(self.N_test), np.zeros(self.N_test)
@@ -195,3 +198,28 @@ class simple_network(nn.Module):
             self.Itask1[i].extend(list(Itask1)) 
             self.Itask2[i].extend(list(Itask2))
             self.RI[i].extend(list(RI_))
+
+    def get_I(self):
+        self.Itask1 = [[],[],[],[],[]]
+        self.Itask2 = [[],[],[],[],[]]
+
+        hidden_task1 = self.forward(self.x1_test, mode='other')        
+        hidden_task2 = self.forward(self.x2_test, mode='other') 
+        
+        error_task1 = F.mse_loss(self.y1_test, hidden_task1[-1])
+        error_task2 = F.mse_loss(self.y2_test, hidden_task2[-1])
+        
+        for i in range(len(hidden_task1)):
+            hidden_task1[i].retain_grad()
+            hidden_task2[i].retain_grad()
+            
+        error_task1.backward()
+        error_task2.backward()    
+
+        for i in range(len(hidden_task1)):
+            Itask1 = (((hidden_task1[i] * hidden_task1[i].grad)**2).mean(0)).detach().numpy()
+            Itask2 = (((hidden_task2[i] * hidden_task2[i].grad)**2).mean(0)).detach().numpy()
+            Itask1[Itask1 < np.mean(Itask1)/10]=0
+            Itask2[Itask2 < np.mean(Itask2)/10]=0
+            self.Itask1[i].extend(list(Itask1))
+            self.Itask2[i].extend(list(Itask2))

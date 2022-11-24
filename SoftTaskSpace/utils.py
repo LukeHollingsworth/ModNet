@@ -101,3 +101,91 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
             fig.suptitle("%s" %title)
         plt.show()
         return
+
+def theta_variation(model_class, hyperparameters=None, N_models=20):
+    models = []
+    coord_range = list(np.linspace(0.2, 1, 9))
+    coord_range.insert(0, 0.001)
+    coords = coord_range
+    grads = [1/i for i in coord_range]
+    coords.reverse()
+    grads = list(np.concatenate((grads, coords)))
+    grads.pop(9)
+    
+    if model_class == 'simple_network':
+        from networks import simple_network
+        for i in range(len(grads)):
+            print('Gradient of r2 = ', grads[i])
+            hyperparameters = {'N_train' : 1000, #size of training dataset 
+                          'N_test' : 100, #size of test set x
+                          'lr' : 0.001, #SGD learning rate 
+                          'epochs' : 10, #training epochs
+                          'batch_size' : 10,  #batch size (large will probably fail)           
+                          'context_location' : 'start',  #where the feed in the task context 'start' vs 'end'
+                          'train_mode' : 'random', #training mode 'random' vs 'replay' 
+                          'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
+                          'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
+                          'hidden_size' : 50, #hidden layer width
+                          'rule1_grad' : 0,
+                          'rule2_grad' : grads[i]}
+
+            for _ in tqdm(range(N_models), desc="Model"):
+                fail_count = 0
+                current_model_successful = False
+                while current_model_successful == False:
+                    if fail_count >= 10:
+                        print("\n This model doesn't train well, aborting")
+                        return models
+                    model = simple_network(hyperparameters)
+                    model.train_model()
+                    if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
+                        model.get_RI()
+                        models.append(model)
+                        current_model_successful = True
+                    else:
+                        fail_count += 1
+            rule1, rule2 = model.rules()
+            plot_rulespace(list(rule1[0]), list(rule2[0]))
+            plot_RI(models)
+        return models
+
+def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
+    
+    if models[0].type_of_network == 'simple_network':
+        I1 = [[],[],[],[],[]]
+        I2 = [[],[],[],[],[]]
+        for model in models:
+            for i in range(len(I1)):
+                I1[i].extend(list(model.Itask1[i]))
+            for i in range(len(I2)):
+                I2[i].extend(list(model.Itask2[i]))
+        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
+        for i in range(4):
+            n, bins1, patches1 = axs[i].hist(I1[i], weights=np.ones(len(I1[i])) / len(I1[i]),bins=np.linspace(-1,1,11))
+            n, bins2, patches2 = axs[i].hist(I2[i], weights=np.ones(len(I2[i])) / len(I2[i]),bins=np.linspace(-1,1,11))
+            bin_centre1 = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins1[1:]),list(bins1[:-1]))]
+            bin_centre2 = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins2[1:]),list(bins2[:-1]))]
+
+            col1 = (bin_centre1 - min(bin_centre1))/(max(bin_centre1) - min(bin_centre1))
+            col2 = (bin_centre2 - min(bin_centre2))/(max(bin_centre2) - min(bin_centre2))
+            cm = matplotlib.colors.LinearSegmentedColormap.from_list('my_cmap',['C1','C0'], N=1000)
+            for c, p in zip(col1, patches1):
+                    plt.setp(p, 'facecolor', cm(c))
+            for c, p in zip(col2, patches2):
+                    plt.setp(p, 'facecolor', cm(c))
+            plt.gca().yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
+            axs[i].set_title("Hidden layer %g" %(i+1))
+            axs[i].set_xlim([-1,1])
+            axs[i].set_xlabel(r'$\mathcal{RI}$')
+            if i == 0:
+                axs[i].set_ylabel('Proportion')            
+            if i == 3 and show_threshold == True: 
+                axs[i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
+                axs[i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
+        for i in range(4):
+            axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(I1[i])))/len(I1[i])))), fontdict = {'color':'grey', 'fontsize':4})
+            axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(I2[i])))/len(I2[i])))), fontdict = {'color':'grey', 'fontsize':4})
+        if title != None:
+            fig.suptitle("%s" %title)
+        plt.show()
+        return
