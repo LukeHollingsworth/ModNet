@@ -121,13 +121,11 @@ class simple_network(nn.Module):
         self.y1_test = torch.from_numpy(self.y1_test).float().unsqueeze(1)
         self.y2_test = torch.from_numpy(self.y2_test).float().unsqueeze(1)
 
-    def rule(self, m, c, N):
-        x1 = 0
-        x2 = 1
-        r1 = [x1, m*x1+c]
-        r2 = [x2, m*x2+c]
+    def rules(self):
+        r1 = [1, self.A1*1 + self.C1_train[0]]
+        r2 = [(1 - self.C2_train[0]) / self.A2, 1]
 
-        return np.tile(r1, (N, 1)), np.tile(r2, (N, 1))
+        return np.tile(r1, (self.N_task1, 1)), np.tile(r2, (self.N_task2, 1))
 
     def initialise_biases(self): #probably unneccesary, set biases initially to zero
         torch.nn.init.zeros_(self.fc1.bias)

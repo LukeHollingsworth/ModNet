@@ -60,6 +60,17 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
         plt.show()
         return
 
+def plot_rulespace(rule1, rule2):
+    origin = [0,0]
+
+    plt.figure(figsize=(2,2))
+    plt.arrow(origin[0],  origin[1], rule1[0], rule1[1], color='b', length_includes_head=True, head_width = 0.01, label="Rule 1")
+    plt.arrow(origin[0], origin[1], rule2[0], rule2[1], color='r', length_includes_head=True, head_width = 0.01, label="Rule 2")
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.legend()
+    plt.show
+
 def plot_RI(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
     if models[0].type_of_network == 'simple_network':
