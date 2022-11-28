@@ -44,7 +44,7 @@ class what_where_network(nn.Module):
         self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc3 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc4 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc5 = nn.Linear(self.hidden_size, 1)
+        self.fc5 = nn.Linear(self.hidden_size, 9)
 
         # Initialise hyperparameter
         self.N_train = hyperparameters['N_train']
@@ -68,7 +68,9 @@ class what_where_network(nn.Module):
         # Training and testing data 
         self.set_data()
         self.initialise_biases()
-        self.hist.append(self.abs_error())
+        # self.hist.append(self.abs_error())
+        # self.hist.append(self.ce_error())
+        self.hist.append(self.accuracy())
 
         self.task1_description = 'What?'
         self.task2_description = 'Where?'
@@ -87,51 +89,53 @@ class what_where_network(nn.Module):
         return hps
     
     def set_data(self):
-        self.N_train = 162
-        self.N_test = 81
-        self.shapes = {'T' : [[1,1,1],
-                         [0,1,0],
-                         [0,1,0]],
-                  'K' : [[1,0,1],
-                         [1,1,0],
-                         [1,0,0]],
-                  '+' : [[0,1,0],
-                         [1,1,1],
-                         [0,1,0]],
-                  'L' : [[1,0,0],
-                         [1,0,0],
-                         [1,1,1]],
-                  'Z' : [[1,1,0],
-                         [0,1,0],
-                         [0,1,1]],
-                  'X' : [[1,0,1],
-                         [0,1,0],
-                         [1,0,1]],
-                  'n' : [[0,1,0],
-                         [1,0,1],
-                         [1,0,1]],
-                  'u' : [[1,0,1],
-                         [1,1,1],
-                         [0,0,0]],
-                  '=' : [[0,1,1],
-                         [0,0,0],
-                         [1,1,1]],
-                  'E' : [[0,0,0],
-                         [0,0,0],
-                         [0,0,0]]}
+        self.N_train = 10*81
+        self.N_test = 2*81
+        self.shapes = { 'T' : [[1,1,1],
+                               [0,1,0],
+                               [0,1,0]],
+                        'K' : [[1,0,1],
+                               [1,1,0],
+                               [1,0,0]],
+                        '+' : [[0,1,0],
+                               [1,1,1],
+                               [0,1,0]],
+                        'L' : [[1,0,0],
+                               [1,0,0],
+                               [1,1,1]],
+                        'Z' : [[1,1,0],
+                               [0,1,0],
+                               [0,1,1]],
+                        'X' : [[1,0,1],
+                               [0,1,0],
+                               [1,0,1]],
+                        'n' : [[0,1,0],
+                               [1,0,1],
+                               [1,0,1]],
+                        'u' : [[1,0,1],
+                               [1,1,1],
+                               [0,0,0]],
+                        '=' : [[0,1,1],
+                               [0,0,0],
+                               [1,1,1]],
+                        'E' : [[0,0,0],
+                               [0,0,0],
+                               [0,0,0]]}
         self.shape_labels = {'T' : 0, 'K' : 1, '+' : 2, 'L' : 3, 'Z' : 4, 'X' : 5, 'n' : 6, 'u' : 7, '=' : 8}
         self.location_labels = {'TL' : 0, 'TM' : 1, 'TR' : 2, 'CL' : 3,'CM' : 4, 'CR' : 5, 'BL' : 6, 'BM' : 7, 'BR' : 8}
         self.base = [self.shapes['E']] * 9
 
         self.c1, self.c2 = np.asarray([1,0]), np.asarray([0,1])
         self.X1_train, self.X2_train, self.X1_test, self.X2_test = np.zeros((1,83)), np.zeros((1,83)), np.zeros((1,83)), np.zeros((1,83))
-        self.Y1_train, self.Y2_train, self.Y1_test, self.Y2_test = np.zeros((1)), np.zeros((1)), np.zeros((1)), np.zeros((1))
+        self.Y1_train, self.Y2_train, self.Y1_test, self.Y2_test = np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9)
         
         for i in range(9):
-            shape = list(self.shapes.values())[i]
+            shape = np.asarray(list(self.shapes.values())[i])
+            shape_label = one_hot(i)
             for j in range(9):
+                location_label = one_hot(j)
                 copy = np.asarray(self.base.copy())
-                copy[j] = np.asarray(shape)
+                copy[j] = shape
                 x = np.array([])
                 for n1 in range(3):
                     row1 = np.asarray([copy[3*n1][0], copy[3*n1+1][0], copy[3*n1+2][0]])
@@ -140,30 +144,42 @@ class what_where_network(nn.Module):
                     block = [row1, row2, row3]
                     x = np.append(x, block).astype(np.int32)
                 
-                for i in range(int(self.N_train/81)):
+                for i in range(int(self.N_train/162)):
                     self.X1_train = np.vstack((self.X1_train, np.concatenate((x, self.c1))))
                     self.X2_train = np.vstack((self.X2_train, np.concatenate((x, self.c2))))
 
-                    self.Y1_train = np.vstack((self.Y1_train, np.asarray(list(self.shape_labels.values())[i])))
-                    self.Y2_train = np.vstack((self.Y2_train, np.asarray(list(self.location_labels.values())[j])))
+                    self.Y1_train = np.vstack((self.Y1_train, shape_label))
+                    self.Y2_train = np.vstack((self.Y2_train, location_label))
 
                 for i in range(int(self.N_test/81)):
                     self.X1_test = np.vstack((self.X1_test, np.concatenate((x, self.c1))))
                     self.X2_test = np.vstack((self.X2_test, np.concatenate((x, self.c2))))
 
-                    self.Y1_test = np.vstack((self.Y1_test, np.asarray(list(self.shape_labels.values())[i])))
-                    self.Y2_test = np.vstack((self.Y2_test, np.asarray(list(self.location_labels.values())[j])))
+                    self.Y1_test = np.vstack((self.Y1_test, shape_label))
+                    self.Y2_test = np.vstack((self.Y2_test, location_label))
 
-        self.X_train = np.concatenate((np.asarray(self.X1_train[1:]), np.asarray(self.X2_train[1:])))
-        self.Y_train = np.concatenate((np.asarray(self.Y1_train[1:]), np.asarray(self.Y2_train[1:])))
+        self.X_train = np.vstack((np.asarray(self.X1_train[1:]), np.asarray(self.X2_train[1:])))
+        self.Y_train = np.vstack((np.asarray(self.Y1_train[1:]), np.asarray(self.Y2_train[1:])))
 
-        self.X_train = self.X_train
         self.X1_test = self.X1_test[1:]
         self.X2_test = self.X2_test[1:]
-
-        self.Y_train = self.Y_train
         self.Y1_test = self.Y1_test[1:]
         self.Y2_test = self.Y2_test[1:]
+
+        shuf_idx_train = np.arange(0, self.N_train)
+        shuf_idx_test = np.arange(0, self.N_test)
+        np.random.shuffle(shuf_idx_train)
+        np.random.shuffle(shuf_idx_test)
+
+        for i in range(self.N_train):
+            self.X_train[i] = self.X_train[shuf_idx_train[i]]
+            self.Y_train[i] = self.Y_train[shuf_idx_train[i]]
+
+        for i in range(self.N_test):
+            self.X1_test[i] = self.X1_test[shuf_idx_test[i]]
+            self.X2_test[i] = self.X2_test[shuf_idx_test[i]]
+            self.Y1_test[i] = self.Y1_test[shuf_idx_test[i]]
+            self.Y2_test[i] = self.Y2_test[shuf_idx_test[i]]
 
         self.X_train = torch.from_numpy(self.X_train).float()
         self.X1_test = torch.from_numpy(np.asarray(self.X1_test)).float()
@@ -185,7 +201,7 @@ class what_where_network(nn.Module):
         x1 = nn.functional.relu(self.fc2(x))        
         x2 = nn.functional.relu(self.fc3(x1))
         x3 = nn.functional.relu(self.fc4(x2))
-        x4 = nn.functional.relu(self.fc5(x3))
+        x4 = nn.functional.softmax(self.fc5(x3), dim=1)
         if mode == 'normal':
             return x4
         elif mode == 'other':
@@ -196,6 +212,24 @@ class what_where_network(nn.Module):
         task2_error = (self.forward(self.X2_test) - self.Y2_test).abs().mean(dim=0)
         return [task1_error.item(), task2_error.item()]
 
+    def ce_error(self):
+        loss = nn.CrossEntropyLoss()
+        task1_loss = loss(self.forward(self.X1_test), self.Y1_test)
+        task2_loss = loss(self.forward(self.X2_test), self.Y2_test)
+        return [task1_loss.item(), task2_loss.item()]
+
+    def accuracy(self):
+        output1 = self.forward(self.X1_test)
+        output2 = self.forward(self.X2_test)
+        correct1 = (F.softmax(output1, dim=1).max(dim=1)[1] == (self.Y1_test).max(dim=1)[1]).sum()
+        correct2 = (F.softmax(output2, dim=1).max(dim=1)[1] == (self.Y2_test).max(dim=1)[1]).sum()
+        accuracy1 = correct1.item() / len(self.X1_test)
+        accuracy2 = correct2.item() / len(self.X2_test)
+        print(F.softmax(output1, dim=1).max(dim=1)[1][:5], '\n', (self.Y1_test).max(dim=1)[1][:5], '\n', accuracy1)
+        for i in range(5):
+            print(np.reshape(self.X1_test[i][:-2], (9,9)), '\n', self.forward(self.X1_test)[i], '\n', self.Y1_test[i])
+        return accuracy1, accuracy2
+
     def train_model(self):
         for epoch in range(self.epochs):
             for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
@@ -203,14 +237,17 @@ class what_where_network(nn.Module):
                 self.do_train_step(idx)
             self.eval() #test/evaluation model 
             with torch.no_grad():
-                self.hist.append(self.abs_error())     
+                # self.hist.append(self.abs_error())
+                # self.hist.append(self.ce_error())
+                self.hist.append(self.accuracy())
 
     def do_train_step(self, idx):
         sample=self.X_train[idx] 
         self.train() # we move the model to train regime because some models have different train/test behavior, e.g., dropout.
         self.optimizer.zero_grad()
         output = self.forward(sample)
-        loss = F.mse_loss(output,self.Y_train[idx])
+        # loss = F.mse_loss(output,self.Y_train[idx])
+        loss = F.cross_entropy(output, self.Y_train[idx])
         loss.backward()
         self.optimizer.step()
 
@@ -267,6 +304,7 @@ class what_where_network(nn.Module):
             self.Itask1[i].extend(list(Itask1))
             self.Itask2[i].extend(list(Itask2))
 
-def make_array(Y):
-    out = [np.array(i) for i in Y]
-    return np.array(out)
+def one_hot(index):
+    onehot = np.zeros(9)
+    onehot[index] = 1
+    return onehot

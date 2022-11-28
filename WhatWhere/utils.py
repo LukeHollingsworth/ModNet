@@ -46,7 +46,7 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
             ax.plot(np.array(models[i].hist)[:,0], linewidth=0.5, alpha=0.2, c='C0')
             task1 += np.array(models[i].hist)[:,0]
             ax.plot(np.array(models[i].hist)[:,1], linewidth=0.5, alpha=0.2, c='C1')
-            task2 += np.array(models[i].hist).astype(float)[:,1]
+            task2 += np.array(models[i].hist)[:,1]
         task1, task2 = task1/len(models), task2/len(models)
         ax.plot(task1, linewidth=1, c='C0', label = r'Task 1: %s' %models[-1].task1_description )
         ax.plot(task2, linewidth=1, c='C1', label =r'Task 2: %s' %models[-1].task2_description)
@@ -252,10 +252,6 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
             model.get_RI()
             models.append(model)
         return models
-
-        
-
-
 
 
 # =============================================================================
