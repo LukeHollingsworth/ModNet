@@ -89,8 +89,8 @@ class what_where_network(nn.Module):
         return hps
     
     def set_data(self):
-        self.N_train = 10*81
-        self.N_test = 2*81
+        self.N_train = 50*81
+        self.N_test = 5*81
         self.shapes = { 'T' : [[1,1,1],
                                [0,1,0],
                                [0,1,0]],
@@ -148,15 +148,15 @@ class what_where_network(nn.Module):
                     self.X1_train = np.vstack((self.X1_train, np.concatenate((x, self.c1))))
                     self.X2_train = np.vstack((self.X2_train, np.concatenate((x, self.c2))))
 
-                    self.Y1_train = np.vstack((self.Y1_train, shape_label))
-                    self.Y2_train = np.vstack((self.Y2_train, location_label))
+                    self.Y1_train = np.vstack((self.Y1_train, location_label))
+                    self.Y2_train = np.vstack((self.Y2_train, shape_label))
 
                 for i in range(int(self.N_test/81)):
                     self.X1_test = np.vstack((self.X1_test, np.concatenate((x, self.c1))))
                     self.X2_test = np.vstack((self.X2_test, np.concatenate((x, self.c2))))
 
-                    self.Y1_test = np.vstack((self.Y1_test, shape_label))
-                    self.Y2_test = np.vstack((self.Y2_test, location_label))
+                    self.Y1_test = np.vstack((self.Y1_test, location_label))
+                    self.Y2_test = np.vstack((self.Y2_test, shape_label))
 
         self.X_train = np.vstack((np.asarray(self.X1_train[1:]), np.asarray(self.X2_train[1:])))
         self.Y_train = np.vstack((np.asarray(self.Y1_train[1:]), np.asarray(self.Y2_train[1:])))
@@ -174,7 +174,7 @@ class what_where_network(nn.Module):
         for i in range(self.N_train):
             self.X_train[i] = self.X_train[shuf_idx_train[i]]
             self.Y_train[i] = self.Y_train[shuf_idx_train[i]]
-
+        
         for i in range(self.N_test):
             self.X1_test[i] = self.X1_test[shuf_idx_test[i]]
             self.X2_test[i] = self.X2_test[shuf_idx_test[i]]
@@ -219,20 +219,19 @@ class what_where_network(nn.Module):
         return [task1_loss.item(), task2_loss.item()]
 
     def accuracy(self):
-        output1 = self.forward(self.X1_test)
-        output2 = self.forward(self.X2_test)
-        correct1 = (F.softmax(output1, dim=1).max(dim=1)[1] == (self.Y1_test).max(dim=1)[1]).sum()
-        correct2 = (F.softmax(output2, dim=1).max(dim=1)[1] == (self.Y2_test).max(dim=1)[1]).sum()
-        accuracy1 = correct1.item() / len(self.X1_test)
-        accuracy2 = correct2.item() / len(self.X2_test)
-        print(F.softmax(output1, dim=1).max(dim=1)[1][:5], '\n', (self.Y1_test).max(dim=1)[1][:5], '\n', accuracy1)
-        for i in range(5):
-            print(np.reshape(self.X1_test[i][:-2], (9,9)), '\n', self.forward(self.X1_test)[i], '\n', self.Y1_test[i])
+        output1 = self.forward(self.X1_test[:int(0.2*self.N_test)])
+        output2 = self.forward(self.X2_test[:int(0.2*self.N_test)])
+        correct1 = (F.softmax(output1, dim=1).max(dim=1)[1] == (self.Y1_test[:int(0.2*self.N_test)]).max(dim=1)[1]).sum()
+        correct2 = (F.softmax(output2, dim=1).max(dim=1)[1] == (self.Y2_test[:int(0.2*self.N_test)]).max(dim=1)[1]).sum()
+        accuracy1 = correct1.item() / len(self.X1_test[:int(0.2*self.N_test)])
+        accuracy2 = correct2.item() / len(self.X2_test[:int(0.2*self.N_test)])
+        # for i in range(5):
+        #     print(np.reshape(self.X2_test[i][:-2], (9,9)), self.X2_test[i][-2:], '\n', self.forward(self.X2_test)[i], '\n', self.Y2_test[i])
         return accuracy1, accuracy2
 
     def train_model(self):
         for epoch in range(self.epochs):
-            for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
+            for i in range(int(0.2*(self.N_train/self.batch_size))): #input.shape == [2]
                 idx = np.random.choice(self.N_train,self.batch_size,replace=False)
                 self.do_train_step(idx)
             self.eval() #test/evaluation model 

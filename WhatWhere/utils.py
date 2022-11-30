@@ -124,12 +124,12 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
 def plot_RI(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
     if models[0].type_of_network == 'simple_network':
-        RI = [[]]
+        RI = [[],[],[],[],[]]
         for model in models:
             for i in range(len(RI)):
                 RI[i].extend(list(model.RI[i]))
-        fig, axs = plt.subplots(1,2,sharey = True, figsize = (4,0.8))
-        for i in range(1):
+        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
+        for i in range(4):
             n, bins, patches = axs[i].hist(RI[i], weights=np.ones(len(RI[i])) / len(RI[i]),bins=np.linspace(-1,1,11))
             bin_centre = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins[1:]),list(bins[:-1]))]
             col = (bin_centre - min(bin_centre))/(max(bin_centre) - min(bin_centre))
@@ -145,7 +145,7 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
             if i == 3 and show_threshold == True: 
                 axs[i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
                 axs[i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
-        for i in range(1):
+        for i in range(4):
             axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(RI[i])))/len(RI[i])))), fontdict = {'color':'grey', 'fontsize':4})
         if title != None:
             fig.suptitle("%s" %title)
