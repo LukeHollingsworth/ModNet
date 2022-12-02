@@ -99,10 +99,17 @@ class simple_network(nn.Module):
         self.C1_train, self.C2_train = np.zeros(self.N_task1), np.zeros(self.N_task2)
         self.C1_test, self.C2_test = np.zeros(self.N_test), np.zeros(self.N_test)
 
-        self.x1_train = np.concatenate((np.random.uniform(0,1,(self.N_task1, 2)), np.ones((self.N_task1, 1)), np.zeros((self.N_task1,1))), axis=1)
-        self.x2_train = np.concatenate((np.random.uniform(0,1,(self.N_task2, 2)), np.zeros((self.N_task2, 1)), np.ones((self.N_task2,1))), axis=1)
-        self.x1_test = np.concatenate((np.random.uniform(0,1,(self.N_test, 2)), np.ones((self.N_test, 1)), np.zeros((self.N_test,1))), axis=1)
-        self.x2_test = np.concatenate((np.random.uniform(0,1,(self.N_test, 2)), np.zeros((self.N_test, 1)), np.ones((self.N_test,1))), axis=1)
+        train_points1 = np.random.uniform(0,1, (int(self.N_train/2), 1))
+        train_points2 = np.random.uniform(-1,1, (int(self.N_train/2), 1))
+        test_points1 = np.random.uniform(0,1, (int(self.N_test), 1))
+        test_points2 = np.random.uniform(-1,1, (int(self.N_test), 1))
+        train_points = np.concatenate((train_points1, train_points2), axis=1)
+        test_points = np.concatenate((test_points1, test_points2), axis=1)
+
+        self.x1_train = np.concatenate((train_points, np.ones((self.N_task1, 1)), np.zeros((self.N_task1,1))), axis=1)
+        self.x2_train = np.concatenate((train_points, np.zeros((self.N_task2, 1)), np.ones((self.N_task2,1))), axis=1)
+        self.x1_test = np.concatenate((test_points, np.ones((self.N_test, 1)), np.zeros((self.N_test,1))), axis=1)
+        self.x2_test = np.concatenate((test_points, np.zeros((self.N_test, 1)), np.ones((self.N_test,1))), axis=1)
 
         self.y1_train = np.abs(self.A1*self.x1_train[:,0] + self.B1*self.x1_train[:,1] + self.C1_train) / np.sqrt(self.A1**2 + self.B1**2)
         self.y2_train = np.abs(self.A2*self.x2_train[:,0] + self.B2*self.x2_train[:,1] + self.C2_train) / np.sqrt(self.A2**2 + self.B2**2)

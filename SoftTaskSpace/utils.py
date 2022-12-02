@@ -30,6 +30,10 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
                     model.get_RI()
                     models.append(model)
                     current_model_successful = True
+                    # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
+                    # print("Generated point = ({},{})".format(round(float(model.x1_test[0][0]), 2), round(float(model.x1_test[0][1]), 2)))
+                    # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
+                    # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
                 else:
                     fail_count += 1
         return models
@@ -60,14 +64,15 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
         plt.show()
         return
 
-def plot_rulespace(rule1, rule2):
+def plot_rulespace(rule1, rule2, data):
     origin = [0,0]
 
     plt.figure(figsize=(2,2))
+    plt.scatter(data[:,0], data[:,1], color='k', s=0.5)
     plt.arrow(origin[0],  origin[1], rule1[0], rule1[1], color='b', length_includes_head=True, head_width = 0.01, label="Rule 1")
     plt.arrow(origin[0], origin[1], rule2[0], rule2[1], color='r', length_includes_head=True, head_width = 0.01, label="Rule 2")
     plt.xlim(0, 1)
-    plt.ylim(0, 1)
+    plt.ylim(-1, 1)
     plt.legend()
     plt.show
 
@@ -128,6 +133,7 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
                           'hidden_size' : 50, #hidden layer width
                           'rule1_grad' : 0,
                           'rule2_grad' : grads[i]}
+            data = simple_network(hyperparameters).x1_test[:,:2]
 
             for _ in tqdm(range(N_models), desc="Model"):
                 fail_count = 0
@@ -142,10 +148,14 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
                         model.get_RI()
                         models.append(model)
                         current_model_successful = True
+                        # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
+                        # print("Generated point = ({},{})".format(model.x1_test[0][0], model.x1_test[0,1]))
+                        # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
+                        # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
                     else:
                         fail_count += 1
             rule1, rule2 = model.rules()
-            plot_rulespace(list(rule1[0]), list(rule2[0]))
+            plot_rulespace(list(rule1[0]), list(rule2[0]), data)
             plot_RI(models)
 
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
