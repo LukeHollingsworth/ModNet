@@ -66,6 +66,7 @@ class simple_network(nn.Module):
         self.RI = [[],[],[],[],[]]
         self.Itask1 = [[],[],[],[],[]]
         self.Itask2 = [[],[],[],[],[]]
+        self.IS_history = []
 
         # Training and testing data 
         self.set_data()
@@ -99,15 +100,16 @@ class simple_network(nn.Module):
         self.C1_train, self.C2_train = np.zeros(self.N_task1), np.zeros(self.N_task2)
         self.C1_test, self.C2_test = np.zeros(self.N_test), np.zeros(self.N_test)
 
-        train_points1 = np.random.uniform(0,1, (int(self.N_train/2), 1))
-        train_points2 = np.random.uniform(-1,1, (int(self.N_train/2), 1))
+        train_points_x = np.random.uniform(0,1, (int(self.N_train), 1))
+        train_points_y = np.random.uniform(-1,1, (int(self.N_train), 1))
         test_points1 = np.random.uniform(0,1, (int(self.N_test), 1))
         test_points2 = np.random.uniform(-1,1, (int(self.N_test), 1))
-        train_points = np.concatenate((train_points1, train_points2), axis=1)
+        train_points = np.concatenate((train_points_x, train_points_y), axis=1)
+        train_points1, train_points2 = train_points[:int(self.N_task1)], train_points[-int(self.N_task2):]
         test_points = np.concatenate((test_points1, test_points2), axis=1)
 
-        self.x1_train = np.concatenate((train_points, np.ones((self.N_task1, 1)), np.zeros((self.N_task1,1))), axis=1)
-        self.x2_train = np.concatenate((train_points, np.zeros((self.N_task2, 1)), np.ones((self.N_task2,1))), axis=1)
+        self.x1_train = np.concatenate((train_points1, np.ones((self.N_task1, 1)), np.zeros((self.N_task1,1))), axis=1)
+        self.x2_train = np.concatenate((train_points2, np.zeros((self.N_task2, 1)), np.ones((self.N_task2,1))), axis=1)
         self.x1_test = np.concatenate((test_points, np.ones((self.N_test, 1)), np.zeros((self.N_test,1))), axis=1)
         self.x2_test = np.concatenate((test_points, np.zeros((self.N_test, 1)), np.ones((self.N_test,1))), axis=1)
 
@@ -230,3 +232,33 @@ class simple_network(nn.Module):
             Itask2[Itask2 < np.mean(Itask2)/10]=0
             self.Itask1[i].extend(list(Itask1))
             self.Itask2[i].extend(list(Itask2))
+
+    def get_IS(self):
+        self.IS = []
+        self.Itask1 = [[],[],[],[],[]]
+        self.Itask2 = [[],[],[],[],[]]
+
+        hidden_task1 = self.forward(self.x1_test, mode='other')
+        hidden_task2 = self.forward(self.x2_test, mode='other')
+
+        error_task1 = F.mse_loss(self.y1_test, hidden_task1[-1])
+        error_task2 = F.mse_loss(self.y2_test, hidden_task2[-1])
+        
+        for i in range(len(hidden_task1)):
+            hidden_task1[i].retain_grad()
+            hidden_task2[i].retain_grad()
+            
+        error_task1.backward()
+        error_task2.backward()
+
+        for i in range(len(hidden_task1)):
+            Itask1 = (((hidden_task1[i] * hidden_task1[i].grad)**2).mean(0)).detach().numpy()
+            Itask2 = (((hidden_task2[i] * hidden_task2[i].grad)**2).mean(0)).detach().numpy()
+            Itask1[Itask1 < np.mean(Itask1)/10]=0
+            Itask2[Itask2 < np.mean(Itask2)/10]=0
+            IS_= np.dot(Itask1, Itask2) / (np.linalg.norm(Itask1) * np.linalg.norm(Itask2))
+            self.Itask1[i].extend(list(Itask1)) 
+            self.Itask2[i].extend(list(Itask2))
+            self.IS.append(IS_)
+
+        return self.IS

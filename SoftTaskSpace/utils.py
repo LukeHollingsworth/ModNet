@@ -13,7 +13,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
-    models = []    
+    models = []
     
     if model_class == 'simple_network':
         from networks import simple_network
@@ -30,13 +30,34 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
                     model.get_RI()
                     models.append(model)
                     current_model_successful = True
-                    # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
-                    # print("Generated point = ({},{})".format(round(float(model.x1_test[0][0]), 2), round(float(model.x1_test[0][1]), 2)))
-                    # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
-                    # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
                 else:
                     fail_count += 1
         return models
+
+def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
+    models = []
+    IS_history = [np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs'])),
+                  np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs']))]
+    
+    if model_class == 'simple_network':
+        from networks import simple_network
+        for n in tqdm(range(N_models), desc="Model"):
+            fail_count = 0
+            for i in range(hyperparameters['epochs']):
+                if fail_count >= 10:
+                    print("\n This model doesn't train well, aborting")
+                    return models
+                model = simple_network(hyperparameters)
+                model.train_model()
+                if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
+                    # model.get_RI()
+                    model.get_IS()
+                    for j in range(len(IS_history)):
+                        IS_history[j][n][i] = model.IS[j]
+                    models.append(model)
+                else:
+                    fail_count += 1
+        return models, IS_history
 
 def plot_training(models, title=None, axis_scale='linear'):  #only works for simple_network lists, not MNIST_networks
     if models[0].type_of_network == 'simple_network':    
@@ -107,57 +128,6 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
         plt.show()
         return
 
-def theta_variation(model_class, hyperparameters=None, N_models=20):
-    models = []
-    coord_range = list(np.linspace(0.2, 1, 9))
-    coord_range.insert(0, 0.001)
-    coords = coord_range
-    grads = [1/i for i in coord_range]
-    coords.reverse()
-    grads = list(np.concatenate((grads, coords)))
-    grads.pop(9)
-    
-    if model_class == 'simple_network':
-        from networks import simple_network
-        for i in range(len(grads)):
-            print('Gradient of r2 = ', grads[i])
-            hyperparameters = {'N_train' : 1000, #size of training dataset 
-                          'N_test' : 100, #size of test set x
-                          'lr' : 0.001, #SGD learning rate 
-                          'epochs' : 10, #training epochs
-                          'batch_size' : 10,  #batch size (large will probably fail)           
-                          'context_location' : 'start',  #where the feed in the task context 'start' vs 'end'
-                          'train_mode' : 'random', #training mode 'random' vs 'replay' 
-                          'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
-                          'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
-                          'hidden_size' : 50, #hidden layer width
-                          'rule1_grad' : 0,
-                          'rule2_grad' : grads[i]}
-            data = simple_network(hyperparameters).x1_test[:,:2]
-
-            for _ in tqdm(range(N_models), desc="Model"):
-                fail_count = 0
-                current_model_successful = False
-                while current_model_successful == False:
-                    if fail_count >= 10:
-                        print("\n This model doesn't train well, aborting")
-                        return models
-                    model = simple_network(hyperparameters)
-                    model.train_model()
-                    if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
-                        model.get_RI()
-                        models.append(model)
-                        current_model_successful = True
-                        # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
-                        # print("Generated point = ({},{})".format(model.x1_test[0][0], model.x1_test[0,1]))
-                        # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
-                        # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
-                    else:
-                        fail_count += 1
-            rule1, rule2 = model.rules()
-            plot_rulespace(list(rule1[0]), list(rule2[0]), data)
-            plot_RI(models)
-
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
     if models[0].type_of_network == 'simple_network':
@@ -198,3 +168,85 @@ def plot_I(models, show_threshold=False, title=None):  #only works for simple_ne
             fig.suptitle("%s" %title)
         plt.show()
         return
+    
+def plot_IS(models, show_threshold=False, title=None):    
+    if models[0].type_of_network == 'simple_network':
+        IS = np.zeros((np.shape(models[0].IS)))
+        fig, ax = plt.subplots(figsize = (2,1.5))
+        for i in range(len(models)):
+            ax.plot(np.linspace(0,4,5), models[i].IS, alpha=0.2, lw=0.5)
+            IS += models[i].IS
+        IS = IS / len(models)
+        ax.plot(np.linspace(0,4,5), IS, color='k', lw=1)
+        if title != None:
+            fig.suptitle("%s" %title)
+        plt.show()
+        return
+
+def plot_IS_history(models, IS_history, show_threshold=False, title=None):    
+    if models[0].type_of_network == 'simple_network':
+        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
+        for i in range(4):
+            IS_avg = np.zeros((10))
+            for j in range(len(IS_history[0])):
+                axs[i].plot(np.linspace(0, 9, 10), IS_history[i][j], alpha=0.2, lw=0.5)
+                IS_avg += IS_history[i][j]
+            IS_avg = IS_avg / len(IS_history[0])
+            axs[i].plot(np.linspace(0, 9, 10), IS_avg, color='k', lw=1)
+            axs[i].set_title("Hidden layer %g" %(i+1))
+            axs[i].set_xlabel(r'$\mathcal{IS}$')
+        if title != None:
+            fig.suptitle("%s" %title)
+        plt.show()
+        return
+
+def theta_variation(model_class, hyperparameters=None, N_models=20):
+    models = []
+    coord_range = list(np.linspace(0.2, 1, 9))
+    coord_range.insert(0, 0.001)
+    coords = coord_range
+    grads = [1/i for i in coord_range]
+    coords.reverse()
+    grads = list(np.concatenate((grads, coords)))
+    grads.pop(9)
+    
+    if model_class == 'simple_network':
+        from networks import simple_network
+        for i in range(len(grads)):
+            print('Gradient of r2 = ', grads[i])
+            hyperparameters = {'N_train' : 1000, #size of training dataset 
+                          'N_test' : 100, #size of test set x
+                          'lr' : 0.001, #SGD learning rate 
+                          'epochs' : 10, #training epochs
+                          'batch_size' : 10,  #batch size (large will probably fail)           
+                          'context_location' : 'start',  #where the feed in the task context 'start' vs 'end'
+                          'train_mode' : 'random', #training mode 'random' vs 'replay' 
+                          'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
+                          'fraction' : 0.20, #fraction of training data for tasks 1 vs task 2
+                          'hidden_size' : 50, #hidden layer width
+                          'rule1_grad' : 0,
+                          'rule2_grad' : grads[i]}
+            data = simple_network(hyperparameters).x1_test[:,:2]
+
+            for _ in tqdm(range(N_models), desc="Model"):
+                fail_count = 0
+                current_model_successful = False
+                while current_model_successful == False:
+                    if fail_count >= 10:
+                        print("\n This model doesn't train well, aborting")
+                        return models
+                    model = simple_network(hyperparameters)
+                    model.train_model()
+                    if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
+                        model.get_RI()
+                        models.append(model)
+                        current_model_successful = True
+                        # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
+                        # print("Generated point = ({},{})".format(model.x1_test[0][0], model.x1_test[0,1]))
+                        # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
+                        # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
+                    else:
+                        fail_count += 1
+            rule1, rule2 = model.rules()
+            plot_rulespace(list(rule1[0]), list(rule2[0]), data)
+            plot_RI(models)
