@@ -197,6 +197,37 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
         plt.show()
         return 
 
+def plot_IS(models, show_threshold=False, title=None):    
+    if models[0].type_of_network == 'simple_network':
+        IS = np.zeros((np.shape(models[0].IS)))
+        fig, ax = plt.subplots(figsize = (2,1.5))
+        for i in range(len(models)):
+            ax.plot(np.linspace(0,4,5), models[i].IS, alpha=0.2, lw=0.5)
+            IS += models[i].IS
+        IS = IS / len(models)
+        ax.plot(np.linspace(0,4,5), IS, color='k', lw=1)
+        if title != None:
+            fig.suptitle("%s" %title)
+        plt.show()
+        return
+
+def plot_IS_history(models, IS_history, show_threshold=False, title=None):    
+    if models[0].type_of_network == 'simple_network':
+        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
+        for i in range(4):
+            IS_avg = np.zeros((10))
+            for j in range(len(IS_history[0])):
+                axs[i].plot(np.linspace(0, 9, 10), IS_history[i][j], alpha=0.2, lw=0.5)
+                IS_avg += IS_history[i][j]
+            IS_avg = IS_avg / len(IS_history[0])
+            axs[i].plot(np.linspace(0, 9, 10), IS_avg, color='k', lw=1)
+            axs[i].set_title("Hidden layer %g" %(i+1))
+            axs[i].set_xlabel(r'$\mathcal{IS}$')
+        if title != None:
+            fig.suptitle("%s" %title)
+        plt.show()
+        return
+
 # =============================================================================
 # plot_lesion_test lesions (sets to zero) penultimate layer neurons with high or low RI then performs a test and plots the performance drop.
 # this ONLY works for simple_models not MNIST_models
@@ -252,6 +283,31 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
             model.get_RI()
             models.append(model)
         return models
+
+def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
+    models = []
+    IS_history = [np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs'])),
+                  np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs']))]
+    
+    if model_class == 'simple_network':
+        from networks import simple_network
+        for n in tqdm(range(N_models), desc="Model"):
+            fail_count = 0
+            for i in range(hyperparameters['epochs']):
+                if fail_count >= 10:
+                    print("\n This model doesn't train well, aborting")
+                    return models
+                model = simple_network(hyperparameters)
+                model.train_model()
+                if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
+                    # model.get_RI()
+                    model.get_IS()
+                    for j in range(len(IS_history)):
+                        IS_history[j][n][i] = model.IS[j]
+                    models.append(model)
+                else:
+                    fail_count += 1
+        return models, IS_history
 
 
 # =============================================================================

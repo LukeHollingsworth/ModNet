@@ -45,8 +45,7 @@ class simple_network(nn.Module):
         self.fc1 = nn.Linear(4, self.hidden_size)
         self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc3 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc4 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc5 = nn.Linear(self.hidden_size, 1)
+        self.fc4 = nn.Linear(self.hidden_size, 1)
 
         # Initialise hyperparameter
         self.N_train = hyperparameters['N_train']
@@ -86,7 +85,7 @@ class simple_network(nn.Module):
                'train_mode' : 'random', #training mode 'random' vs 'replay' 
                'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
                'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
-               'hidden_size' : 100, #hidden layer width
+               'hidden_size' : 50, #hidden layer width
                'rule1_grad' : 0.5,
                'rule2_grad' : 5}
         return hps
@@ -144,18 +143,16 @@ class simple_network(nn.Module):
         torch.nn.init.zeros_(self.fc2.bias)
         torch.nn.init.zeros_(self.fc3.bias)
         torch.nn.init.zeros_(self.fc4.bias)
-        torch.nn.init.zeros_(self.fc5.bias)
 
     def forward(self, input, mode='normal'):
         x = nn.functional.relu(self.fc1(input))        
         x1 = nn.functional.relu(self.fc2(x))        
         x2 = nn.functional.relu(self.fc3(x1))
         x3 = nn.functional.relu(self.fc4(x2))
-        x4 = nn.functional.relu(self.fc5(x3))
         if mode == 'normal':
-            return x4
+            return x3
         elif mode == 'other':
-            return x, x1, x2, x3, x4
+            return x, x1, x2, x3
 
     def abs_error(self):
         task1_error = (self.forward(self.x1_test) - self.y1_test).abs().mean(dim=0).item()
@@ -163,13 +160,17 @@ class simple_network(nn.Module):
         return [task1_error, task2_error]
 
     def train_model(self):
+        IS_history = np.zeros((4,self.epochs))
         for epoch in range(self.epochs):
             for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
                 idx = np.random.choice(self.N_train,self.batch_size,replace=False)
                 self.do_train_step(idx)
             self.eval() #test/evaluation model 
+            IS_history[:,epoch] = self.get_IS()
             with torch.no_grad():
-                self.hist.append(self.abs_error())     
+                self.hist.append(self.abs_error())
+
+        return IS_history
 
     def do_train_step(self, idx):
         sample=self.x_train[idx] 

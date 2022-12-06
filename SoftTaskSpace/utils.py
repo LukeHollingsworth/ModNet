@@ -36,25 +36,24 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
 
 def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
     models = []
-    IS_history = [np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs'])),
-                  np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs']))]
+    IS_history = np.zeros((4,hyperparameters['epochs'],N_models))
     
     if model_class == 'simple_network':
         from networks import simple_network
         for n in tqdm(range(N_models), desc="Model"):
             fail_count = 0
-            for i in range(hyperparameters['epochs']):
+            current_model_successful = False
+            while current_model_successful == False:
                 if fail_count >= 10:
                     print("\n This model doesn't train well, aborting")
                     return models
                 model = simple_network(hyperparameters)
-                model.train_model()
+                IS_history[:,:,n] = model.train_model()
                 if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
                     # model.get_RI()
                     model.get_IS()
-                    for j in range(len(IS_history)):
-                        IS_history[j][n][i] = model.IS[j]
                     models.append(model)
+                    current_model_successful = True
                 else:
                     fail_count += 1
         return models, IS_history
@@ -100,12 +99,12 @@ def plot_rulespace(rule1, rule2, data):
 def plot_RI(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
     if models[0].type_of_network == 'simple_network':
-        RI = [[],[],[],[],[]]
+        RI = [[],[],[],[]]
         for model in models:
             for i in range(len(RI)):
                 RI[i].extend(list(model.RI[i]))
-        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
-        for i in range(4):
+        fig, axs = plt.subplots(1,3,sharey = True, figsize = (4,0.8))
+        for i in range(3):
             n, bins, patches = axs[i].hist(RI[i], weights=np.ones(len(RI[i])) / len(RI[i]),bins=np.linspace(-1,1,11))
             bin_centre = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins[1:]),list(bins[:-1]))]
             col = (bin_centre - min(bin_centre))/(max(bin_centre) - min(bin_centre))
@@ -121,7 +120,7 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
             if i == 3 and show_threshold == True: 
                 axs[i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
                 axs[i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
-        for i in range(4):
+        for i in range(3):
             axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(RI[i])))/len(RI[i])))), fontdict = {'color':'grey', 'fontsize':4})
         if title != None:
             fig.suptitle("%s" %title)
@@ -131,15 +130,15 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
     if models[0].type_of_network == 'simple_network':
-        I1 = [[],[],[],[],[]]
-        I2 = [[],[],[],[],[]]
+        I1 = [[],[],[],[]]
+        I2 = [[],[],[],[]]
         for model in models:
             for i in range(len(I1)):
                 I1[i].extend(list(model.Itask1[i]))
             for i in range(len(I2)):
                 I2[i].extend(list(model.Itask2[i]))
-        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
-        for i in range(4):
+        fig, axs = plt.subplots(1,3,sharey = True, figsize = (4,0.8))
+        for i in range(3):
             n, bins1, patches1 = axs[i].hist(I1[i], weights=np.ones(len(I1[i])) / len(I1[i]),bins=np.linspace(-1,1,11))
             n, bins2, patches2 = axs[i].hist(I2[i], weights=np.ones(len(I2[i])) / len(I2[i]),bins=np.linspace(-1,1,11))
             bin_centre1 = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins1[1:]),list(bins1[:-1]))]
@@ -161,7 +160,7 @@ def plot_I(models, show_threshold=False, title=None):  #only works for simple_ne
             if i == 3 and show_threshold == True: 
                 axs[i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
                 axs[i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
-        for i in range(4):
+        for i in range(3):
             axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(I1[i])))/len(I1[i])))), fontdict = {'color':'grey', 'fontsize':4})
             axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(I2[i])))/len(I2[i])))), fontdict = {'color':'grey', 'fontsize':4})
         if title != None:
@@ -174,25 +173,25 @@ def plot_IS(models, show_threshold=False, title=None):
         IS = np.zeros((np.shape(models[0].IS)))
         fig, ax = plt.subplots(figsize = (2,1.5))
         for i in range(len(models)):
-            ax.plot(np.linspace(0,4,5), models[i].IS, alpha=0.2, lw=0.5)
+            ax.plot(np.linspace(0,3,4), models[i].IS, alpha=0.2, lw=0.5)
             IS += models[i].IS
         IS = IS / len(models)
-        ax.plot(np.linspace(0,4,5), IS, color='k', lw=1)
+        ax.plot(np.linspace(0,3,4), IS, color='k', lw=1)
         if title != None:
             fig.suptitle("%s" %title)
         plt.show()
         return
 
-def plot_IS_history(models, IS_history, show_threshold=False, title=None):    
+def plot_IS_history(models, IS_history, hyperparameters=None, show_threshold=False, title=None):    
     if models[0].type_of_network == 'simple_network':
-        fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
+        fig, axs = plt.subplots(1,3,sharey = True, figsize = (4,0.8))
         for i in range(4):
-            IS_avg = np.zeros((10))
-            for j in range(len(IS_history[0])):
-                axs[i].plot(np.linspace(0, 9, 10), IS_history[i][j], alpha=0.2, lw=0.5)
-                IS_avg += IS_history[i][j]
-            IS_avg = IS_avg / len(IS_history[0])
-            axs[i].plot(np.linspace(0, 9, 10), IS_avg, color='k', lw=1)
+            IS_avg = np.zeros((hyperparameters['epochs']))
+            for j in range(len(models)):
+                axs[i].plot(np.linspace(0, 9, hyperparameters['epochs']), IS_history[i,:,j], alpha=0.2, lw=0.5)
+                IS_avg += IS_history[i,:,j]
+            IS_avg = IS_avg / len(models)
+            axs[i].plot(np.linspace(0, 9, hyperparameters['epochs']), IS_avg, color='k', lw=1)
             axs[i].set_title("Hidden layer %g" %(i+1))
             axs[i].set_xlabel(r'$\mathcal{IS}$')
         if title != None:
@@ -222,8 +221,8 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
                           'context_location' : 'start',  #where the feed in the task context 'start' vs 'end'
                           'train_mode' : 'random', #training mode 'random' vs 'replay' 
                           'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
-                          'fraction' : 0.20, #fraction of training data for tasks 1 vs task 2
-                          'hidden_size' : 50, #hidden layer width
+                          'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
+                          'hidden_size' : 25, #hidden layer width
                           'rule1_grad' : 0,
                           'rule2_grad' : grads[i]}
             data = simple_network(hyperparameters).x1_test[:,:2]
