@@ -36,7 +36,7 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
 
 def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
     models = []
-    IS_history = np.zeros((4,hyperparameters['epochs'],N_models))
+    IS_history = np.zeros((3,hyperparameters['epochs'],N_models))
     
     if model_class == 'simple_network':
         from networks import simple_network
@@ -85,13 +85,11 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
         return
 
 def plot_rulespace(rule1, rule2, data):
-    origin = [0,0]
-
     plt.figure(figsize=(2,2))
-    plt.scatter(data[:,0], data[:,1], color='k', s=0.5)
-    plt.arrow(origin[0],  origin[1], rule1[0], rule1[1], color='b', length_includes_head=True, head_width = 0.01, label="Rule 1")
-    plt.arrow(origin[0], origin[1], rule2[0], rule2[1], color='r', length_includes_head=True, head_width = 0.01, label="Rule 2")
-    plt.xlim(0, 1)
+    plt.scatter(data[:,0], data[:,1], color='gray', s=0.5)
+    plt.arrow(rule1[0][0], rule1[0][1], (rule1[1][0]-rule1[0][0]), (rule1[1][1]-rule1[0][1]), color='b', length_includes_head=True, head_width = 0.01, label="Rule 1")
+    plt.arrow(rule2[0][0], rule2[0][1], (rule2[1][0]-rule2[0][0]), (rule2[1][1]-rule2[0][1]), color='r', length_includes_head=True, head_width = 0.01, label="Rule 2")
+    plt.xlim(-1, 1)
     plt.ylim(-1, 1)
     plt.legend()
     plt.show
@@ -173,10 +171,10 @@ def plot_IS(models, show_threshold=False, title=None):
         IS = np.zeros((np.shape(models[0].IS)))
         fig, ax = plt.subplots(figsize = (2,1.5))
         for i in range(len(models)):
-            ax.plot(np.linspace(0,3,4), models[i].IS, alpha=0.2, lw=0.5)
+            ax.plot(np.linspace(1,3,3), models[i].IS, alpha=0.2, lw=0.5)
             IS += models[i].IS
         IS = IS / len(models)
-        ax.plot(np.linspace(0,3,4), IS, color='k', lw=1)
+        ax.plot(np.linspace(1,3,3), IS, color='k', lw=1)
         if title != None:
             fig.suptitle("%s" %title)
         plt.show()
@@ -185,7 +183,7 @@ def plot_IS(models, show_threshold=False, title=None):
 def plot_IS_history(models, IS_history, hyperparameters=None, show_threshold=False, title=None):    
     if models[0].type_of_network == 'simple_network':
         fig, axs = plt.subplots(1,3,sharey = True, figsize = (4,0.8))
-        for i in range(4):
+        for i in range(3):
             IS_avg = np.zeros((hyperparameters['epochs']))
             for j in range(len(models)):
                 axs[i].plot(np.linspace(0, 9, hyperparameters['epochs']), IS_history[i,:,j], alpha=0.2, lw=0.5)
@@ -247,5 +245,65 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
                     else:
                         fail_count += 1
             rule1, rule2 = model.rules()
-            plot_rulespace(list(rule1[0]), list(rule2[0]), data)
+            plot_rulespace(rule1, rule2, data)
             plot_RI(models)
+
+def theta_sampling(model_class, hyperparameters=None, N_models=20):
+    models = []
+    N_theta = 50
+    thetas = np.random.uniform(0, 360, N_theta)
+    delta_thetas = np.random.uniform(0, 360, N_theta)
+
+    if model_class == 'simple_network':
+        from networks import simple_network
+        for i in range(N_theta):
+            theta, delta_theta = thetas[i], delta_thetas[i]
+            print('theta = {}, delta theta = {}, theta+delta_theta = {}'.format(theta, delta_theta, theta+delta_theta))
+            grad1 = np.tan(np.deg2rad(theta))
+            grad2 = np.tan(np.deg2rad(theta + delta_theta))
+            print('grad1 = {}, grad2 = {}'.format(grad1, grad2))
+            hyperparameters = {'N_train' : 1000, #size of training dataset 
+                          'N_test' : 100, #size of test set x
+                          'lr' : 0.001, #SGD learning rate 
+                          'epochs' : 10, #training epochs
+                          'batch_size' : 10,  #batch size (large will probably fail)           
+                          'context_location' : 'start',  #where the feed in the task context 'start' vs 'end'
+                          'train_mode' : 'random', #training mode 'random' vs 'replay' 
+                          'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
+                          'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
+                          'hidden_size' : 25, #hidden layer width
+                          'rule1_grad' : grad1,
+                          'rule2_grad' : grad2}
+            data = simple_network(hyperparameters).x1_test[:,:2]
+            RI_data = [[],[],[],[]]
+            IS_data = np.zeros((3, hyperparameters['epochs'], N_models))
+
+            for n in tqdm(range(N_models), desc="Model"):
+                fail_count = 0
+                current_model_successful = False
+                while current_model_successful == False:
+                    if fail_count >= 10:
+                        print("\n This model doesn't train well, aborting")
+                        return models
+                    model = simple_network(hyperparameters)
+                    model.train_model()
+                    IS_data[:,:,n] = model.train_model()
+                    if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
+                        model.get_RI()
+                        models.append(model)
+                        current_model_successful = True
+                    else:
+                        fail_count += 1
+
+                    for i in range(len(RI_data)):
+                        RI_data[i].extend(list(model.RI[i]))
+            # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
+            # print("Generated point = ({},{})".format(model.x1_test[0][0], model.x1_test[0,1]))
+            # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
+            # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
+
+            rule1, rule2 = model.rules()
+            plot_rulespace(rule1, rule2, data)
+            plot_RI(models)
+            plot_IS(models)
+            plot_IS_history(models, IS_data, hyperparameters)

@@ -99,13 +99,9 @@ class simple_network(nn.Module):
         self.C1_train, self.C2_train = np.zeros(self.N_task1), np.zeros(self.N_task2)
         self.C1_test, self.C2_test = np.zeros(self.N_test), np.zeros(self.N_test)
 
-        train_points_x = np.random.uniform(0,1, (int(self.N_train), 1))
-        train_points_y = np.random.uniform(-1,1, (int(self.N_train), 1))
-        test_points1 = np.random.uniform(0,1, (int(self.N_test), 1))
-        test_points2 = np.random.uniform(-1,1, (int(self.N_test), 1))
-        train_points = np.concatenate((train_points_x, train_points_y), axis=1)
+        train_points = np.random.uniform(-1, 1, (int(self.N_train), 2))
+        test_points = np.random.uniform(-1, 1, (int(self.N_test), 2))
         train_points1, train_points2 = train_points[:int(self.N_task1)], train_points[-int(self.N_task2):]
-        test_points = np.concatenate((test_points1, test_points2), axis=1)
 
         self.x1_train = np.concatenate((train_points1, np.ones((self.N_task1, 1)), np.zeros((self.N_task1,1))), axis=1)
         self.x2_train = np.concatenate((train_points2, np.zeros((self.N_task2, 1)), np.ones((self.N_task2,1))), axis=1)
@@ -133,10 +129,16 @@ class simple_network(nn.Module):
         self.y2_test = torch.from_numpy(self.y2_test).float().unsqueeze(1)
 
     def rules(self):
-        r1 = [1, self.A1*1 + self.C1_train[0]]
-        r2 = [(1 - self.C2_train[0]) / self.A2, 1]
+        if self.A1 > 1:
+            r1 = [[-1 / self.A1, -1], [1 / self.A1, 1]]
+        else:
+            r1 = [[-1, -self.A1], [1, self.A1]]
+        if self.A2 > 1:
+            r2 = [[-1 / self.A2, -1], [1 / self.A2, 1]]
+        else:
+            r2 = [[-1, -self.A2], [1, self.A2]]
 
-        return np.tile(r1, (self.N_task1, 1)), np.tile(r2, (self.N_task2, 1))
+        return r1, r2
 
     def initialise_biases(self): #probably unneccesary, set biases initially to zero
         torch.nn.init.zeros_(self.fc1.bias)
@@ -152,7 +154,7 @@ class simple_network(nn.Module):
         if mode == 'normal':
             return x3
         elif mode == 'other':
-            return x, x1, x2, x3
+            return x1, x2, x3
 
     def abs_error(self):
         task1_error = (self.forward(self.x1_test) - self.y1_test).abs().mean(dim=0).item()
@@ -160,7 +162,7 @@ class simple_network(nn.Module):
         return [task1_error, task2_error]
 
     def train_model(self):
-        IS_history = np.zeros((4,self.epochs))
+        IS_history = np.zeros((3,self.epochs))
         for epoch in range(self.epochs):
             for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
                 idx = np.random.choice(self.N_train,self.batch_size,replace=False)
@@ -210,8 +212,8 @@ class simple_network(nn.Module):
             self.RI[i].extend(list(RI_))
 
     def get_I(self):
-        self.Itask1 = [[],[],[],[],[]]
-        self.Itask2 = [[],[],[],[],[]]
+        self.Itask1 = [[],[],[],[]]
+        self.Itask2 = [[],[],[],[]]
 
         hidden_task1 = self.forward(self.x1_test, mode='other')        
         hidden_task2 = self.forward(self.x2_test, mode='other') 
@@ -236,8 +238,8 @@ class simple_network(nn.Module):
 
     def get_IS(self):
         self.IS = []
-        self.Itask1 = [[],[],[],[],[]]
-        self.Itask2 = [[],[],[],[],[]]
+        self.Itask1 = [[],[],[]]
+        self.Itask2 = [[],[],[]]
 
         hidden_task1 = self.forward(self.x1_test, mode='other')
         hidden_task2 = self.forward(self.x2_test, mode='other')
