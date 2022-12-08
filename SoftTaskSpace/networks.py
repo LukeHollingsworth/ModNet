@@ -154,7 +154,7 @@ class simple_network(nn.Module):
         if mode == 'normal':
             return x3
         elif mode == 'other':
-            return x1, x2, x3
+            return x, x1, x2, x3
 
     def abs_error(self):
         task1_error = (self.forward(self.x1_test) - self.y1_test).abs().mean(dim=0).item()
@@ -162,7 +162,7 @@ class simple_network(nn.Module):
         return [task1_error, task2_error]
 
     def train_model(self):
-        IS_history = np.zeros((3,self.epochs))
+        IS_history = np.zeros((4,self.epochs))
         for epoch in range(self.epochs):
             for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
                 idx = np.random.choice(self.N_train,self.batch_size,replace=False)
@@ -184,9 +184,9 @@ class simple_network(nn.Module):
         self.optimizer.step()
 
     def get_RI(self):
-        self.RI = [[],[],[],[],[]]
-        self.Itask1 = [[],[],[],[],[]]
-        self.Itask2 = [[],[],[],[],[]]
+        self.RI = [[],[],[],[]]
+        self.Itask1 = [[],[],[],[]]
+        self.Itask2 = [[],[],[],[]]
 
         hidden_task1 = self.forward(self.x1_test, mode='other')        
         hidden_task2 = self.forward(self.x2_test, mode='other') 
@@ -238,8 +238,8 @@ class simple_network(nn.Module):
 
     def get_IS(self):
         self.IS = []
-        self.Itask1 = [[],[],[]]
-        self.Itask2 = [[],[],[]]
+        self.Itask1 = [[],[],[],[]]
+        self.Itask2 = [[],[],[],[]]
 
         hidden_task1 = self.forward(self.x1_test, mode='other')
         hidden_task2 = self.forward(self.x2_test, mode='other')

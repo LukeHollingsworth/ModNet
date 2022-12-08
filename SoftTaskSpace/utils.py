@@ -171,10 +171,10 @@ def plot_IS(models, show_threshold=False, title=None):
         IS = np.zeros((np.shape(models[0].IS)))
         fig, ax = plt.subplots(figsize = (2,1.5))
         for i in range(len(models)):
-            ax.plot(np.linspace(1,3,3), models[i].IS, alpha=0.2, lw=0.5)
+            ax.plot(np.linspace(1,4,4), models[i].IS, alpha=0.2, lw=0.5)
             IS += models[i].IS
         IS = IS / len(models)
-        ax.plot(np.linspace(1,3,3), IS, color='k', lw=1)
+        ax.plot(np.linspace(1,4,4), IS, color='k', lw=1)
         if title != None:
             fig.suptitle("%s" %title)
         plt.show()
@@ -249,14 +249,14 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
             plot_RI(models)
 
 def theta_sampling(model_class, hyperparameters=None, N_models=20):
-    models = []
-    N_theta = 50
+    N_theta = 10
     thetas = np.random.uniform(0, 360, N_theta)
     delta_thetas = np.random.uniform(0, 360, N_theta)
 
     if model_class == 'simple_network':
         from networks import simple_network
         for i in range(N_theta):
+            models = []
             theta, delta_theta = thetas[i], delta_thetas[i]
             print('theta = {}, delta theta = {}, theta+delta_theta = {}'.format(theta, delta_theta, theta+delta_theta))
             grad1 = np.tan(np.deg2rad(theta))
@@ -276,7 +276,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20):
                           'rule2_grad' : grad2}
             data = simple_network(hyperparameters).x1_test[:,:2]
             RI_data = [[],[],[],[]]
-            IS_data = np.zeros((3, hyperparameters['epochs'], N_models))
+            IS_data = np.zeros((4, hyperparameters['epochs'], N_models))
 
             for n in tqdm(range(N_models), desc="Model"):
                 fail_count = 0
