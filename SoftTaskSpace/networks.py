@@ -40,6 +40,8 @@ class simple_network(nn.Module):
         self.hidden_size = hyperparameters['hidden_size']
         self.A1 = hyperparameters['rule1_grad']
         self.A2 = hyperparameters['rule2_grad']
+        self.theta = np.rad2deg(np.arctan(self.A1))
+        self.delta_theta = np.rad2deg(np.arctan(self.A2)) - self.theta
         super(simple_network, self).__init__()
 
         self.fc1 = nn.Linear(4, self.hidden_size)

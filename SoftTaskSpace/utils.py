@@ -124,6 +124,38 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
             fig.suptitle("%s" %title)
         plt.show()
         return
+        
+def plot_full_RI(theta_models, title=None):
+    if theta_models[0][0].type_of_network == 'simple_network':
+        theta_RI = []
+        delta_thetas = np.zeros(shape=(len(theta_models)))
+        for theta in range(len(theta_models)):
+            RI = [[],[],[],[]]
+            for model in theta_models[theta]:
+                for i in range(len(RI)):
+                    RI[i].extend(list(model.RI[i]))
+            delta_thetas[theta] = model.delta_theta
+            theta_RI.append(RI[:-1])
+        
+        fig, axs = plt.subplots(int(len(delta_thetas)/5),5,sharey=True, figsize=(5,4))
+        for i in range(int(len(delta_thetas)/5)):
+            for j in range(5):
+                n, bins, patches = axs[i,j].hist(theta_RI[5*i+j][2], weights=np.ones(len(theta_RI[5*i+j][2])) / len(theta_RI[5*i+j][2]),bins=np.linspace(-1,1,11))
+                bin_centre = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins[1:]),list(bins[:-1]))]
+                col = (bin_centre - min(bin_centre))/(max(bin_centre) - min(bin_centre))
+                cm = matplotlib.colors.LinearSegmentedColormap.from_list('my_cmap',['C1','C0'], N=1000)
+                for c, p in zip(col, patches):
+                        plt.setp(p, 'facecolor', cm(c))
+                plt.gca().yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
+                # axs[i,j].set_title("Hidden layer %g" %(i+1))
+                axs[i,j].set_xlim([-1,1])
+                # axs[i,j].set_xlabel(r'$\mathcal{RI}$')
+        for i in range(int(len(delta_thetas)/5)):
+            for j in range(5):
+                axs[i,j].text(0.51,axs[i,j].get_ylim()[-1]*0.92, round(delta_thetas[5*i+j]), fontdict = {'color':'grey', 'fontsize':4})
+        if title != None:
+            fig.suptitle("%s" %title)
+        plt.show()
 
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
@@ -248,10 +280,10 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
             plot_rulespace(rule1, rule2, data)
             plot_RI(models)
 
-def theta_sampling(model_class, hyperparameters=None, N_models=20):
-    N_theta = 10
+def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20):
     thetas = np.random.uniform(0, 360, N_theta)
     delta_thetas = np.random.uniform(0, 360, N_theta)
+    theta_models = []
 
     if model_class == 'simple_network':
         from networks import simple_network
@@ -302,8 +334,10 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20):
             # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
             # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
 
+            theta_models.append(models)
             rule1, rule2 = model.rules()
-            plot_rulespace(rule1, rule2, data)
-            plot_RI(models)
-            plot_IS(models)
-            plot_IS_history(models, IS_data, hyperparameters)
+            # plot_rulespace(rule1, rule2, data)
+            # plot_RI(models)
+            # plot_IS(models)
+            # plot_IS_history(models, IS_data, hyperparameters)
+        plot_full_RI(theta_models)
