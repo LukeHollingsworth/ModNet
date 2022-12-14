@@ -282,18 +282,18 @@ def theta_variation(model_class, hyperparameters=None, N_models=20):
 
 def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20):
     thetas = np.random.uniform(0, 360, N_theta)
-    delta_thetas = np.random.uniform(0, 360, N_theta)
+    delta_thetas = np.random.uniform(-180, 180, N_theta)
+    delta_thetas.sort()
+    print(delta_thetas)
     theta_models = []
 
     if model_class == 'simple_network':
         from networks import simple_network
-        for i in range(N_theta):
+        for i in tqdm(range(N_theta), desc="Theta"):
             models = []
             theta, delta_theta = thetas[i], delta_thetas[i]
-            print('theta = {}, delta theta = {}, theta+delta_theta = {}'.format(theta, delta_theta, theta+delta_theta))
             grad1 = np.tan(np.deg2rad(theta))
             grad2 = np.tan(np.deg2rad(theta + delta_theta))
-            print('grad1 = {}, grad2 = {}'.format(grad1, grad2))
             hyperparameters = {'N_train' : 1000, #size of training dataset 
                           'N_test' : 100, #size of test set x
                           'lr' : 0.001, #SGD learning rate 
@@ -305,12 +305,13 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
                           'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
                           'hidden_size' : 25, #hidden layer width
                           'rule1_grad' : grad1,
-                          'rule2_grad' : grad2}
+                          'rule2_grad' : grad2,
+                          'delta_theta': delta_theta}
             data = simple_network(hyperparameters).x1_test[:,:2]
             RI_data = [[],[],[],[]]
             IS_data = np.zeros((4, hyperparameters['epochs'], N_models))
 
-            for n in tqdm(range(N_models), desc="Model"):
+            for n in range(N_models):
                 fail_count = 0
                 current_model_successful = False
                 while current_model_successful == False:
@@ -329,15 +330,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
 
                     for i in range(len(RI_data)):
                         RI_data[i].extend(list(model.RI[i]))
-            # print("Gradient of Rule 1 = {}, Gradient of Rule 2 = {}.".format(model.A1, model.A2))
-            # print("Generated point = ({},{})".format(model.x1_test[0][0], model.x1_test[0,1]))
-            # print("X_1 = {}, Y_1 = {}".format(model.forward(model.x1_test)[0].T, model.y1_test[0].T))
-            # print("X_2 = {}, Y_2 = {}".format(model.forward(model.x2_test)[0].T, model.y2_test[0].T))
 
             theta_models.append(models)
             rule1, rule2 = model.rules()
-            # plot_rulespace(rule1, rule2, data)
-            # plot_RI(models)
-            # plot_IS(models)
-            # plot_IS_history(models, IS_data, hyperparameters)
         plot_full_RI(theta_models)
