@@ -157,6 +157,28 @@ def plot_full_RI(theta_models, title=None):
             fig.suptitle("%s" %title)
         plt.show()
 
+def plot_RI_variance(theta_models, variances, title=None):
+    if theta_models[0][0].type_of_network == 'simple_network':
+        delta_thetas = np.zeros(shape=(len(theta_models)))
+        for theta in range(len(theta_models)):
+            RI = [[],[],[],[]]
+            for model in theta_models[theta]:
+                for i in range(len(RI)):
+                    RI[i].extend(list(model.RI[i]))
+            delta_thetas[theta] = model.delta_theta
+        
+        layer_1_variances = [item[0] for item in variances]
+        layer_2_variances = [item[1] for item in variances]
+        layer_3_variances = [item[2] for item in variances]
+
+        plt.plot(delta_thetas, layer_1_variances, color='orange', linestyle='--', marker='o')
+        plt.plot(delta_thetas, layer_2_variances, color='springgreen', linestyle='--', marker='o')
+        plt.plot(delta_thetas, layer_3_variances, color='darkviolet', linestyle='--', marker='o')
+        plt.xlabel(r'$\Delta$ $\theta$ (degrees)')
+        plt.ylabel(r'Variance ($\sigma^2$)')
+        plt.show()
+
+
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
     if models[0].type_of_network == 'simple_network':
@@ -286,6 +308,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
     delta_thetas.sort()
     print(delta_thetas)
     theta_models = []
+    RI_variances = []
 
     if model_class == 'simple_network':
         from networks import simple_network
@@ -309,6 +332,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
                           'delta_theta': delta_theta}
             data = simple_network(hyperparameters).x1_test[:,:2]
             RI_data = [[],[],[],[]]
+            RI_variance = []
             IS_data = np.zeros((4, hyperparameters['epochs'], N_models))
 
             for n in range(N_models):
@@ -330,7 +354,13 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
 
                     for i in range(len(RI_data)):
                         RI_data[i].extend(list(model.RI[i]))
-
+            
+            for i in range(len(RI_data)):
+                cleaned_RI_data = [x for x in RI_data[i] if np.isnan(x) == False]
+                RI_variance.append(np.var(cleaned_RI_data))
+            
+            RI_variances.append(list(RI_variance))
             theta_models.append(models)
             rule1, rule2 = model.rules()
         plot_full_RI(theta_models)
+        plot_RI_variance(theta_models, RI_variances)
