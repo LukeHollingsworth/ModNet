@@ -125,7 +125,7 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
         plt.show()
         return
         
-def plot_full_RI(theta_models, title=None):
+def plot_full_RI(theta_models):
     if theta_models[0][0].type_of_network == 'simple_network':
         theta_RI = []
         delta_thetas = np.zeros(shape=(len(theta_models)))
@@ -153,8 +153,6 @@ def plot_full_RI(theta_models, title=None):
         for i in range(int(len(delta_thetas)/5)):
             for j in range(5):
                 axs[i,j].text(0.51,axs[i,j].get_ylim()[-1]*0.92, round(delta_thetas[5*i+j]), fontdict = {'color':'grey', 'fontsize':4})
-        if title != None:
-            fig.suptitle("%s" %title)
         plt.show()
 
 def plot_RI_variance(theta_models, variances, title=None):
@@ -171,13 +169,13 @@ def plot_RI_variance(theta_models, variances, title=None):
         layer_2_variances = [item[1] for item in variances]
         layer_3_variances = [item[2] for item in variances]
 
-        plt.plot(delta_thetas, layer_1_variances, color='orange', linestyle='--', marker='o')
-        plt.plot(delta_thetas, layer_2_variances, color='springgreen', linestyle='--', marker='o')
-        plt.plot(delta_thetas, layer_3_variances, color='darkviolet', linestyle='--', marker='o')
+        plt.figure(figsize=(5,4))
+        plt.plot(delta_thetas, layer_1_variances, color='orange', linestyle='--', marker='o', label='Layer 1')
+        plt.plot(delta_thetas, layer_2_variances, color='springgreen', linestyle='--', marker='o', label='(Hidden) Layer 2')
+        plt.plot(delta_thetas, layer_3_variances, color='darkviolet', linestyle='--', marker='o', label='(Hidden) Layer 3')
         plt.xlabel(r'$\Delta$ $\theta$ (degrees)')
         plt.ylabel(r'Variance ($\sigma^2$)')
         plt.show()
-
 
 def plot_I(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
     
@@ -251,6 +249,31 @@ def plot_IS_history(models, IS_history, hyperparameters=None, show_threshold=Fal
         plt.show()
         return
 
+def plot_full_IS(theta_models, IS_history, hyperparameters):
+    if theta_models[0][0].type_of_network == 'simple_network':
+        delta_thetas = np.zeros(shape=(len(theta_models)))
+        for theta in range(len(theta_models)):
+            model = theta_models[theta][0]
+            delta_thetas[theta] = model.delta_theta
+        
+        for layer in range(3):
+            fig, axs = plt.subplots(int(len(delta_thetas)/5),5,sharey=True, figsize=(5,4))
+            for i in range(int(len(delta_thetas)/5)):
+                for j in range(5):
+                    IS_avg = np.zeros((hyperparameters['epochs']))
+                    for k in range(len(theta_models[5*i+j])):
+                        axs[i,j].plot(np.linspace(0, 9, hyperparameters['epochs']), IS_history[5*i+j][k][layer], alpha=0.2, lw=0.5)
+                        IS_avg += IS_history[5*i+j][k][layer]
+                    IS_avg = IS_avg / len(theta_models[5*i+j])
+                    axs[i,j].plot(np.linspace(0, 9, hyperparameters['epochs']), IS_avg, color='k', lw=1)
+            for i in range(int(len(delta_thetas)/5)):
+                for j in range(5):
+                    axs[i,j].text(0.51,axs[i,j].get_ylim()[-1]*0.92, round(delta_thetas[5*i+j]), fontdict = {'color':'grey', 'fontsize':3})
+            fig.suptitle(("Layer ",layer))
+            plt.show()
+
+
+# FUNCTIONS FOR FULL EXPERIMENTS
 def theta_variation(model_class, hyperparameters=None, N_models=20):
     models = []
     coord_range = list(np.linspace(0.2, 1, 9))
@@ -309,6 +332,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
     print(delta_thetas)
     theta_models = []
     RI_variances = []
+    IS_history = []
 
     if model_class == 'simple_network':
         from networks import simple_network
@@ -333,7 +357,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
             data = simple_network(hyperparameters).x1_test[:,:2]
             RI_data = [[],[],[],[]]
             RI_variance = []
-            IS_data = np.zeros((4, hyperparameters['epochs'], N_models))
+            IS_data = np.zeros((N_models, 4, hyperparameters['epochs']))
 
             for n in range(N_models):
                 fail_count = 0
@@ -343,8 +367,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
                         print("\n This model doesn't train well, aborting")
                         return models
                     model = simple_network(hyperparameters)
-                    model.train_model()
-                    IS_data[:,:,n] = model.train_model()
+                    IS_data[n] = model.train_model()
                     if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
                         model.get_RI()
                         models.append(model)
@@ -354,6 +377,7 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
 
                     for i in range(len(RI_data)):
                         RI_data[i].extend(list(model.RI[i]))
+            IS_history.append(IS_data)
             
             for i in range(len(RI_data)):
                 cleaned_RI_data = [x for x in RI_data[i] if np.isnan(x) == False]
@@ -364,3 +388,4 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
             rule1, rule2 = model.rules()
         plot_full_RI(theta_models)
         plot_RI_variance(theta_models, RI_variances)
+        plot_full_IS(theta_models, IS_history, hyperparameters)

@@ -66,7 +66,6 @@ class simple_network(nn.Module):
         self.RI = [[],[],[],[],[]]
         self.Itask1 = [[],[],[],[],[]]
         self.Itask2 = [[],[],[],[],[]]
-        self.IS_history = []
 
         # Training and testing data 
         self.set_data()
@@ -163,17 +162,17 @@ class simple_network(nn.Module):
         return [task1_error, task2_error]
 
     def train_model(self):
-        IS_history = np.zeros((4,self.epochs))
+        self.IS_history = np.zeros((4,self.epochs))
         for epoch in range(self.epochs):
             for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
                 idx = np.random.choice(self.N_train,self.batch_size,replace=False)
                 self.do_train_step(idx)
             self.eval() #test/evaluation model 
-            IS_history[:,epoch] = self.get_IS()
+            self.IS_history[:,epoch] = self.get_IS()
             with torch.no_grad():
                 self.hist.append(self.abs_error())
 
-        return IS_history
+        return self.IS_history
 
     def do_train_step(self, idx):
         sample=self.x_train[idx] 
