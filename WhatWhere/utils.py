@@ -50,7 +50,7 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
         task1, task2 = task1/len(models), task2/len(models)
         ax.plot(task1, linewidth=1, c='C0', label = r'Task 1: %s' %models[-1].task1_description )
         ax.plot(task2, linewidth=1, c='C1', label =r'Task 2: %s' %models[-1].task2_description)
-        ax.set_ylabel('Absolute test error')
+        ax.set_ylabel('Accuracy')
         ax.set_xlabel('Epochs')
         if models[-1].train_mode == 'replay':
             ax.axvspan(0, models[-1].epochs,color='C0', alpha=0.1)  #vertical shading
@@ -290,16 +290,16 @@ def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
                   np.zeros((N_models, hyperparameters['epochs'])),np.zeros((N_models, hyperparameters['epochs']))]
     
     if model_class == 'simple_network':
-        from networks import simple_network
+        from networks import what_where_network
         for n in tqdm(range(N_models), desc="Model"):
             fail_count = 0
             for i in range(hyperparameters['epochs']):
                 if fail_count >= 10:
                     print("\n This model doesn't train well, aborting")
                     return models
-                model = simple_network(hyperparameters)
+                model = what_where_network(hyperparameters)
                 model.train_model()
-                if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
+                if model.accuracy()[0]>0.95 and model.accuracy()[1]>0.95:
                     # model.get_RI()
                     model.get_IS()
                     for j in range(len(IS_history)):

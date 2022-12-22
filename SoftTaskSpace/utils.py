@@ -33,6 +33,15 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
                 else:
                     fail_count += 1
         return models
+    
+    if model_class == 'small_network':
+        from networks import simple_network
+        for _ in tqdm(range(N_models), desc="Model"):
+            model = simple_network(hyperparameters)
+            model.train_model()
+            model.get_RI()
+            models.append(model)
+        return models
 
 def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
     models = []
@@ -367,7 +376,8 @@ def theta_sampling(model_class, hyperparameters=None, N_models=20, N_theta = 20)
                         print("\n This model doesn't train well, aborting")
                         return models
                     model = simple_network(hyperparameters)
-                    IS_data[n] = model.train_model()
+                    model.train_model()
+                    IS_data[n] = model.IS_history
                     if model.abs_error()[0]<0.05 and model.abs_error()[1]<0.05:
                         model.get_RI()
                         models.append(model)

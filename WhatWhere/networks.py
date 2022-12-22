@@ -43,8 +43,7 @@ class what_where_network(nn.Module):
         self.fc1 = nn.Linear(83, self.hidden_size)
         self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc3 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc4 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc5 = nn.Linear(self.hidden_size, 9)
+        self.fc4 = nn.Linear(self.hidden_size, 9)
 
         # Initialise hyperparameter
         self.N_train = hyperparameters['N_train']
@@ -83,7 +82,6 @@ class what_where_network(nn.Module):
                'batch_size' : 10,  #batch size (large will probably fail)           
                'context_location' : 'start',  #where the feed in the task context 'start' vs 'end'
                'train_mode' : 'random', #training mode 'random' vs 'replay' 
-               'second_task' : 'prod', #first task adds x+y, second task 'prod' = xy or 'add1.5' = x+1.5y
                'fraction' : 0.50, #fraction of training data for tasks 1 vs task 2
                'hidden_size' : 100} #hidden layer width
         return hps
@@ -194,18 +192,16 @@ class what_where_network(nn.Module):
         torch.nn.init.zeros_(self.fc2.bias)
         torch.nn.init.zeros_(self.fc3.bias)
         torch.nn.init.zeros_(self.fc4.bias)
-        torch.nn.init.zeros_(self.fc5.bias)
 
     def forward(self, input, mode='normal'):
         x = nn.functional.relu(self.fc1(input))        
         x1 = nn.functional.relu(self.fc2(x))        
         x2 = nn.functional.relu(self.fc3(x1))
-        x3 = nn.functional.relu(self.fc4(x2))
-        x4 = nn.functional.softmax(self.fc5(x3), dim=1)
+        x3 = nn.functional.softmax(self.fc4(x2), dim=1)
         if mode == 'normal':
-            return x4
+            return x3
         elif mode == 'other':
-            return x, x1, x2, x3, x4
+            return x, x1, x2, x3
 
     def abs_error(self):
         task1_error = (self.forward(self.X1_test) - self.Y1_test).abs().mean(dim=0)
@@ -230,15 +226,37 @@ class what_where_network(nn.Module):
         return accuracy1, accuracy2
 
     def train_model(self):
-        for epoch in range(self.epochs):
-            for i in range(int(0.2*(self.N_train/self.batch_size))): #input.shape == [2]
-                idx = np.random.choice(self.N_train,self.batch_size,replace=False)
-                self.do_train_step(idx)
-            self.eval() #test/evaluation model 
-            with torch.no_grad():
-                # self.hist.append(self.abs_error())
-                # self.hist.append(self.ce_error())
-                self.hist.append(self.accuracy())
+        if self.train_mode == 'random':
+            for epoch in range(self.epochs):
+                for i in range(int(0.2*(self.N_train/self.batch_size))): #train on 20%
+                    idx = np.random.choice(self.N_train,self.batch_size,replace=False)
+                    self.do_train_step(idx)
+                self.eval() #test/evaluation model 
+                with torch.no_grad():
+                    # self.hist.append(self.abs_error())
+                    # self.hist.append(self.ce_error())
+                    self.hist.append(self.accuracy())
+        
+        if self.train_mode == 'replay':
+            N_task1 = int(self.N_train*self.fraction)
+            for epoch in range(self.epochs):
+                for i in range(int(0.2*(N_task1/self.batch_size))): 
+                    idx = np.random.choice(N_task1,self.batch_size,replace=False)
+                    self.do_train_step(idx)
+                self.eval() #test/evaluation model 
+                with torch.no_grad():
+                    self.hist.append(self.accuracy())     
+            for epoch in range(self.epochs):
+                for i in range(int((self.N_train-N_task1)/self.batch_size)): #input.shape == [2]
+                    if (i+1)%10 == 0: 
+                        idx = np.random.choice(N_task1,self.batch_size,replace=False)
+                    else:    
+                        idx = np.random.choice(range(N_task1,self.N_train),self.batch_size,replace=False)
+                    self.do_train_step(idx)
+                self.eval() #test/evaluation model 
+                with torch.no_grad():
+                    # self.hist.append(self.abs_error())
+                    self.hist.append(self.accuracy())
 
     def do_train_step(self, idx):
         sample=self.X_train[idx] 

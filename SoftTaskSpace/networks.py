@@ -162,17 +162,38 @@ class simple_network(nn.Module):
         return [task1_error, task2_error]
 
     def train_model(self):
-        self.IS_history = np.zeros((4,self.epochs))
-        for epoch in range(self.epochs):
-            for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
-                idx = np.random.choice(self.N_train,self.batch_size,replace=False)
-                self.do_train_step(idx)
-            self.eval() #test/evaluation model 
-            self.IS_history[:,epoch] = self.get_IS()
-            with torch.no_grad():
-                self.hist.append(self.abs_error())
-
-        return self.IS_history
+        if self.train_mode == 'random':
+            self.IS_history = np.zeros((4,self.epochs))
+            for epoch in range(self.epochs):
+                for i in range(int(self.N_train/self.batch_size)): #input.shape == [2]
+                    idx = np.random.choice(self.N_train,self.batch_size,replace=False)
+                    self.do_train_step(idx)
+                self.eval() #test/evaluation model 
+                self.IS_history[:,epoch] = self.get_IS()
+                with torch.no_grad():
+                    self.hist.append(self.abs_error())
+            
+        if self.train_mode == 'replay':
+            N_task1 = int(self.N_train*self.fraction)
+            for epoch in range(self.epochs):
+                for i in range(int(N_task1/self.batch_size)): 
+                    idx = np.random.choice(N_task1,self.batch_size,replace=False)
+                    self.do_train_step(idx)
+                self.eval() #test/evaluation model 
+                with torch.no_grad():
+                    self.hist.append(self.abs_error())     
+            for epoch in range(self.epochs):
+                for i in range(int((self.N_train-N_task1)/self.batch_size)): #input.shape == [2]
+                    if (i+1)%10 == 0: 
+                        idx = np.random.choice(N_task1,self.batch_size,replace=False)
+                    else:    
+                        idx = np.random.choice(range(N_task1,self.N_train),self.batch_size,replace=False)
+                    self.do_train_step(idx)
+                self.eval() #test/evaluation model 
+                with torch.no_grad():
+                 self.hist.append(self.abs_error())
+        
+        return
 
     def do_train_step(self, idx):
         sample=self.x_train[idx] 
