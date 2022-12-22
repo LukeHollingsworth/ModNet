@@ -278,7 +278,7 @@ def plot_full_IS(theta_models, IS_history, hyperparameters):
             for i in range(int(len(delta_thetas)/5)):
                 for j in range(5):
                     axs[i,j].text(0.51,axs[i,j].get_ylim()[-1]*0.92, round(delta_thetas[5*i+j]), fontdict = {'color':'grey', 'fontsize':3})
-            fig.suptitle(("Layer ",layer))
+            fig.suptitle("Layer %i" % layer)
             plt.show()
 
 
