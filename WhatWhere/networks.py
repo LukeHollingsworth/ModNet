@@ -72,8 +72,8 @@ class what_where_network(nn.Module):
         # self.hist.append(self.ce_error())
         self.hist.append(self.accuracy())
 
-        self.task1_description = 'What?'
-        self.task2_description = 'Where?'
+        self.task1_description = 'Where?'
+        self.task2_description = 'What?'
 
     def get_default_hyperparameters(self):
         hps = {'N_train' : 1000, #size of training dataset 
@@ -165,20 +165,20 @@ class what_where_network(nn.Module):
         self.Y1_test = self.Y1_test[1:]
         self.Y2_test = self.Y2_test[1:]
 
-        # shuf_idx_train = np.arange(0, self.N_train)
-        # shuf_idx_test = np.arange(0, self.N_test)
-        # np.random.shuffle(shuf_idx_train)
-        # np.random.shuffle(shuf_idx_test)
+        shuf_idx_train = np.arange(0, self.N_train)
+        shuf_idx_test = np.arange(0, self.N_test)
+        np.random.shuffle(shuf_idx_train)
+        np.random.shuffle(shuf_idx_test)
 
-        # for i in range(self.N_train):
-        #     self.X_train[i] = self.X_train[shuf_idx_train[i]]
-        #     self.Y_train[i] = self.Y_train[shuf_idx_train[i]]
+        for i in range(self.N_train):
+            self.X_train[i] = self.X_train[shuf_idx_train[i]]
+            self.Y_train[i] = self.Y_train[shuf_idx_train[i]]
         
-        # for i in range(self.N_test):
-        #     self.X1_test[i] = self.X1_test[shuf_idx_test[i]]
-        #     self.X2_test[i] = self.X2_test[shuf_idx_test[i]]
-        #     self.Y1_test[i] = self.Y1_test[shuf_idx_test[i]]
-        #     self.Y2_test[i] = self.Y2_test[shuf_idx_test[i]]
+        for i in range(self.N_test):
+            self.X1_test[i] = self.X1_test[shuf_idx_test[i]]
+            self.X2_test[i] = self.X2_test[shuf_idx_test[i]]
+            self.Y1_test[i] = self.Y1_test[shuf_idx_test[i]]
+            self.Y2_test[i] = self.Y2_test[shuf_idx_test[i]]
 
         self.X_train = torch.from_numpy(self.X_train).float()
         self.X1_test = torch.from_numpy(np.asarray(self.X1_test)).float()
@@ -243,10 +243,10 @@ class what_where_network(nn.Module):
         if self.train_mode == 'replay':
             N_task1 = int(self.N_train*self.fraction)
             for epoch in range(self.epochs):
-                for i in range(int(0.2*(N_task1/self.batch_size))): 
+                for i in range(int(0.2*(N_task1/self.batch_size))):
                     idx = np.random.choice(N_task1,self.batch_size,replace=False)
                     self.do_train_step(idx)
-                self.eval() #test/evaluation model 
+                self.eval() # test/evaluation model 
                 with torch.no_grad():
                     self.hist.append(self.accuracy())     
             for epoch in range(self.epochs):
