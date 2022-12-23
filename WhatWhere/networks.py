@@ -43,7 +43,8 @@ class what_where_network(nn.Module):
         self.fc1 = nn.Linear(83, self.hidden_size)
         self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc3 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.fc4 = nn.Linear(self.hidden_size, 9)
+        self.fc4 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.fc5 = nn.Linear(self.hidden_size, 9)
 
         # Initialise hyperparameter
         self.N_train = hyperparameters['N_train']
@@ -164,20 +165,20 @@ class what_where_network(nn.Module):
         self.Y1_test = self.Y1_test[1:]
         self.Y2_test = self.Y2_test[1:]
 
-        shuf_idx_train = np.arange(0, self.N_train)
-        shuf_idx_test = np.arange(0, self.N_test)
-        np.random.shuffle(shuf_idx_train)
-        np.random.shuffle(shuf_idx_test)
+        # shuf_idx_train = np.arange(0, self.N_train)
+        # shuf_idx_test = np.arange(0, self.N_test)
+        # np.random.shuffle(shuf_idx_train)
+        # np.random.shuffle(shuf_idx_test)
 
-        for i in range(self.N_train):
-            self.X_train[i] = self.X_train[shuf_idx_train[i]]
-            self.Y_train[i] = self.Y_train[shuf_idx_train[i]]
+        # for i in range(self.N_train):
+        #     self.X_train[i] = self.X_train[shuf_idx_train[i]]
+        #     self.Y_train[i] = self.Y_train[shuf_idx_train[i]]
         
-        for i in range(self.N_test):
-            self.X1_test[i] = self.X1_test[shuf_idx_test[i]]
-            self.X2_test[i] = self.X2_test[shuf_idx_test[i]]
-            self.Y1_test[i] = self.Y1_test[shuf_idx_test[i]]
-            self.Y2_test[i] = self.Y2_test[shuf_idx_test[i]]
+        # for i in range(self.N_test):
+        #     self.X1_test[i] = self.X1_test[shuf_idx_test[i]]
+        #     self.X2_test[i] = self.X2_test[shuf_idx_test[i]]
+        #     self.Y1_test[i] = self.Y1_test[shuf_idx_test[i]]
+        #     self.Y2_test[i] = self.Y2_test[shuf_idx_test[i]]
 
         self.X_train = torch.from_numpy(self.X_train).float()
         self.X1_test = torch.from_numpy(np.asarray(self.X1_test)).float()
@@ -192,16 +193,18 @@ class what_where_network(nn.Module):
         torch.nn.init.zeros_(self.fc2.bias)
         torch.nn.init.zeros_(self.fc3.bias)
         torch.nn.init.zeros_(self.fc4.bias)
+        torch.nn.init.zeros_(self.fc5.bias)
 
     def forward(self, input, mode='normal'):
         x = nn.functional.relu(self.fc1(input))        
         x1 = nn.functional.relu(self.fc2(x))        
         x2 = nn.functional.relu(self.fc3(x1))
-        x3 = nn.functional.softmax(self.fc4(x2), dim=1)
+        x3 = nn.functional.relu(self.fc4(x2))
+        x4 = nn.functional.softmax(self.fc5(x3), dim=1)
         if mode == 'normal':
-            return x3
+            return x4
         elif mode == 'other':
-            return x, x1, x2, x3
+            return x, x1, x2, x3, x4
 
     def abs_error(self):
         task1_error = (self.forward(self.X1_test) - self.Y1_test).abs().mean(dim=0)
