@@ -121,8 +121,7 @@ def plot_training(models, title=None, axis_scale='linear'):  #only works for sim
 # =============================================================================
 # plot_RI plots the fractional task variance throughout the layers 
 # =============================================================================
-def plot_RI(models, show_threshold=False, title=None):  #only works for simple_network lists, not MNIST_networks
-    
+def plot_RI(models, show_threshold=False, title=None, learning_speeds=None):  #only works for simple_network lists, not MNIST_networks
     if models[0].type_of_network == 'simple_network':
         RI = [[],[],[],[],[]]
         for model in models:
@@ -151,7 +150,54 @@ def plot_RI(models, show_threshold=False, title=None):  #only works for simple_n
             fig.suptitle("%s" %title)
         plt.show()
         return
-        
+
+    if models[0].type_of_network == 'Lamarckian':
+        for i in range(len(models)):
+            if learning_speeds[i] == None:
+                del learning_speeds[i]
+                del models[i]
+        N_models = len(models)
+        learning_speeds = np.asarray(learning_speeds)
+        inds = learning_speeds.argsort()
+        sorted_models = []
+        sorted_learning_speeds = []
+        for i, ind in enumerate(inds):
+            sorted_models.append(models[ind])
+            sorted_learning_speeds.append(learning_speeds[ind])
+
+        model_groups = [sorted_models[x:x+round(N_models/5)] for x in range(0, N_models, round(N_models/5))]
+        ls_groups = [sorted_learning_speeds[x:x+round(N_models/5)] for x in range(0, N_models, round(N_models/5))]
+        ls_means = [sum(group)/len(group) for group in ls_groups]
+
+        for l, group in enumerate(model_groups):
+            print('Average number of epochs taken to learn: ', ls_means[l])
+            RI = [[],[],[],[],[]]
+            for model in group:
+                for i in range(len(RI)):
+                    RI[i].extend(list(model.RI[i]))
+            fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
+            for i in range(4):
+                n, bins, patches = axs[i].hist(RI[i], weights=np.ones(len(RI[i])) / len(RI[i]),bins=np.linspace(-1,1,11))
+                bin_centre = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins[1:]),list(bins[:-1]))]
+                col = (bin_centre - min(bin_centre))/(max(bin_centre) - min(bin_centre))
+                cm = matplotlib.colors.LinearSegmentedColormap.from_list('my_cmap',['C1','C0'], N=1000)
+                for c, p in zip(col, patches):
+                        plt.setp(p, 'facecolor', cm(c))
+                plt.gca().yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
+                axs[i].set_title("Hidden layer %g" %(i+1))
+                axs[i].set_xlim([-1,1])
+                axs[i].set_xlabel(r'$\mathcal{RI}$')
+                if i == 0:
+                    axs[i].set_ylabel('Proportion')            
+                if i == 3 and show_threshold == True: 
+                    axs[i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
+                    axs[i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
+            for i in range(4):
+                axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(RI[i])))/len(RI[i])))), fontdict = {'color':'grey', 'fontsize':4})
+            if title != None:
+                fig.suptitle("%s" %title)
+            plt.show()
+        return
         
     if models[0].type_of_network == 'MNIST_network':
         combined_RI = {}
@@ -273,7 +319,8 @@ def plot_lesion_test(models, RI_threshold=0.9, title=None): #only works for simp
 # if a network fails to train 10 times in a row the training is aborted and an error returned
 # =============================================================================
 def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
-    models = []    
+    models = []
+    learning_speeds = []  
     
     if model_class == 'simple_network':
         from networks import what_where_network
@@ -283,6 +330,20 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
             model.get_RI()
             models.append(model)
         return models
+    
+    if model_class == 'Lamarckian':
+        from networks import LamarckianModel
+        for _ in tqdm(range(N_models), desc="Model"):
+            model = LamarckianModel(hyperparameters)
+            model.train_model()
+            try:
+                model.learning_speed
+                learning_speeds.append(model.learning_speed)
+            except:
+                learning_speeds.append(None)
+            model.get_RI()
+            models.append(model)
+        return models, learning_speeds
 
 def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
     models = []

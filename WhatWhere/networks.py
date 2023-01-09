@@ -230,8 +230,9 @@ class what_where_network(nn.Module):
 
     def train_model(self):
         if self.train_mode == 'random':
+            is_learnt = False
             for epoch in range(self.epochs):
-                for i in range(int(0.2*(self.N_train/self.batch_size))): #train on 20%
+                for i in range(int(0.2*(self.N_train/self.batch_size))): # train on 20%
                     idx = np.random.choice(self.N_train,self.batch_size,replace=False)
                     self.do_train_step(idx)
                 self.eval() #test/evaluation model 
@@ -239,6 +240,9 @@ class what_where_network(nn.Module):
                     # self.hist.append(self.abs_error())
                     # self.hist.append(self.ce_error())
                     self.hist.append(self.accuracy())
+                    if np.mean(self.accuracy()) >= 0.90 and is_learnt != True:
+                        self.learning_speed = epoch
+                        is_learnt = True
         
         if self.train_mode == 'replay':
             N_task1 = int(self.N_train*self.fraction)
@@ -323,6 +327,19 @@ class what_where_network(nn.Module):
             Itask2[Itask2 < np.mean(Itask2)/10]=0
             self.Itask1[i].extend(list(Itask1))
             self.Itask2[i].extend(list(Itask2))
+
+class LamarckianModel(what_where_network):
+    def __init__(self, hyperparameters=None):
+        super().__init__(hyperparameters)
+        self.initialise_weights()
+        self.type_of_network = 'Lamarckian'
+
+    def initialise_weights(self):
+        torch.nn.init.xavier_normal_(self.fc1.weight)
+        torch.nn.init.xavier_normal_(self.fc2.weight)
+        torch.nn.init.xavier_normal_(self.fc3.weight)
+        torch.nn.init.xavier_normal_(self.fc4.weight)
+        torch.nn.init.xavier_normal_(self.fc5.weight)
 
 def one_hot(index):
     onehot = np.zeros(9)
