@@ -169,34 +169,35 @@ def plot_RI(models, show_threshold=False, title=None, learning_speeds=None):  #o
         ls_groups = [sorted_learning_speeds[x:x+round(N_models/5)] for x in range(0, N_models, round(N_models/5))]
         ls_means = [sum(group)/len(group) for group in ls_groups]
 
+        fig, axs = plt.subplots(len(ls_means),4,sharey = True)
         for l, group in enumerate(model_groups):
             print('Average number of epochs taken to learn: ', ls_means[l])
             RI = [[],[],[],[],[]]
             for model in group:
                 for i in range(len(RI)):
                     RI[i].extend(list(model.RI[i]))
-            fig, axs = plt.subplots(1,4,sharey = True, figsize = (4,0.8))
             for i in range(4):
-                n, bins, patches = axs[i].hist(RI[i], weights=np.ones(len(RI[i])) / len(RI[i]),bins=np.linspace(-1,1,11))
+                n, bins, patches = axs[l,i].hist(RI[i], weights=np.ones(len(RI[i])) / len(RI[i]),bins=np.linspace(-1,1,11))
                 bin_centre = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins[1:]),list(bins[:-1]))]
                 col = (bin_centre - min(bin_centre))/(max(bin_centre) - min(bin_centre))
                 cm = matplotlib.colors.LinearSegmentedColormap.from_list('my_cmap',['C1','C0'], N=1000)
                 for c, p in zip(col, patches):
                         plt.setp(p, 'facecolor', cm(c))
                 plt.gca().yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
-                axs[i].set_title("Hidden layer %g" %(i+1))
-                axs[i].set_xlim([-1,1])
-                axs[i].set_xlabel(r'$\mathcal{RI}$')
+                # axs[l,i].set_title("Hidden layer %g" %(i+1))
+                axs[l,i].set_xlim([-1,1])
+                # axs[l,i].set_xlabel(r'$\mathcal{RI}$')
                 if i == 0:
-                    axs[i].set_ylabel('Proportion')            
+                    axs[l,i].set_ylabel('Proportion')            
                 if i == 3 and show_threshold == True: 
-                    axs[i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
-                    axs[i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
+                    axs[l,i].axvline(0.9,color='r',linestyle='--',linewidth=0.8)
+                    axs[l,i].axvline(-0.9,color='r',linestyle='--',linewidth=0.8)
             for i in range(4):
-                axs[i].text(0.51,axs[i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(RI[i])))/len(RI[i])))), fontdict = {'color':'grey', 'fontsize':4})
+                axs[l,i].text(0.51,axs[l,i].get_ylim()[-1]*0.92, r"+ %g%%" %int((100*(np.sum(np.isnan(np.array(RI[i])))/len(RI[i])))), fontdict = {'color':'grey', 'fontsize':4})
+            axs[l,3].text(0.51,axs[l,3].get_ylim()[-1]*0.70, r"%g" %round(ls_means[l], 2), fontdict = {'color':'grey', 'fontsize':4})
             if title != None:
                 fig.suptitle("%s" %title)
-            plt.show()
+        plt.show()
         return
         
     if models[0].type_of_network == 'MNIST_network':
