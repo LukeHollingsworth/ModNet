@@ -240,7 +240,7 @@ class what_where_network(nn.Module):
                     # self.hist.append(self.abs_error())
                     # self.hist.append(self.ce_error())
                     self.hist.append(self.accuracy())
-                    if np.mean(self.accuracy()) >= 0.90 and is_learnt != True:
+                    if np.mean(self.accuracy()) >= 0.70 and is_learnt != True:
                         self.learning_speed = epoch
                         is_learnt = True
         

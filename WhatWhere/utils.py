@@ -169,13 +169,19 @@ def plot_RI(models, show_threshold=False, title=None, learning_speeds=None):  #o
         ls_groups = [sorted_learning_speeds[x:x+round(N_models/5)] for x in range(0, N_models, round(N_models/5))]
         ls_means = [sum(group)/len(group) for group in ls_groups]
 
+        RI_variances = []
         fig, axs = plt.subplots(len(ls_means),4,sharey = True)
         for l, group in enumerate(model_groups):
-            print('Average number of epochs taken to learn: ', ls_means[l])
-            RI = [[],[],[],[],[]]
+            RI = [[],[],[],[]]
+            RI_variance = [[],[],[],[]]
             for model in group:
                 for i in range(len(RI)):
                     RI[i].extend(list(model.RI[i]))
+            for i in range(len(RI)):
+                cleaned_RI_data = [x for x in RI[i] if np.isnan(x) == False]
+                RI_variance[i] = np.var(cleaned_RI_data)
+            RI_variances.append(RI_variance)
+
             for i in range(4):
                 n, bins, patches = axs[l,i].hist(RI[i], weights=np.ones(len(RI[i])) / len(RI[i]),bins=np.linspace(-1,1,11))
                 bin_centre = [(bin_right + bin_left)/2 for (bin_right, bin_left) in zip(list(bins[1:]),list(bins[:-1]))]
@@ -197,6 +203,20 @@ def plot_RI(models, show_threshold=False, title=None, learning_speeds=None):  #o
             axs[l,3].text(0.51,axs[l,3].get_ylim()[-1]*0.70, r"%g" %round(ls_means[l], 2), fontdict = {'color':'grey', 'fontsize':4})
             if title != None:
                 fig.suptitle("%s" %title)
+        plt.show()
+
+        RI_variance_means = [np.mean(x) for x in RI_variances]
+        RI_variance_errors = []
+        print(ls_means, RI_variance_means)
+        for var in RI_variances:
+            SE = np.std(var)/np.sqrt(len(var))
+            RI_variance_errors.append(SE)
+        plt.errorbar(ls_means, RI_variance_means, yerr=RI_variance_errors, fmt='o')
+        plt.xlim((min(ls_means)-2, max(ls_means)+2))
+        plt.ylim((min(RI_variance_means)-0.05, max(RI_variance_means)+0.05))
+        plt.xlabel('Epochs to learn')
+        plt.ylabel('Mean RI variance of group')
+        plt.title('Variance of RI as a function of learning speed')
         plt.show()
         return
         
@@ -344,6 +364,7 @@ def train_multiple(model_class, hyperparameters = None,  N_models=20, ):
                 learning_speeds.append(None)
             model.get_RI()
             models.append(model)
+
         return models, learning_speeds
 
 def train_IS_history(model_class, hyperparameters = None,  N_models=20, ):
